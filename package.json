@@ -38,5 +38,27 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "author": "HugoLopes45",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HugoLopes45/polybot-ts.git"
+  },
+  "homepage": "https://github.com/HugoLopes45/polybot-ts#readme",
+  "bugs": {
+    "url": "https://github.com/HugoLopes45/polybot-ts/issues"
+  },
+  "keywords": [
+    "polymarket",
+    "trading",
+    "sdk",
+    "ddd",
+    "typescript",
+    "prediction-markets"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "packageManager": "pnpm@9.15.4"
 }

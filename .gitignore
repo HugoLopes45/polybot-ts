@@ -1,17 +1,22 @@
 # ── Dependencies ─────────────────────────────────────
 node_modules/
+.pnp
+.pnp.*
 
 # ── Build output ─────────────────────────────────────
 dist/
+out/
+build/
 *.tsbuildinfo
 
 # ── Test & coverage ──────────────────────────────────
 coverage/
+.nyc_output/
 
 # ── Environment & secrets ────────────────────────────
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # ── AI tooling (internal) ────────────────────────────
 CLAUDE.md
@@ -23,15 +28,44 @@ IMPLEMENTATION_GUIDE.md
 # ── OS artifacts ─────────────────────────────────────
 .DS_Store
 Thumbs.db
+Desktop.ini
+._*
 
-# ── Editor configs ───────────────────────────────────
+# ── Editor & IDE configs ────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
 
 # ── Logs ─────────────────────────────────────────────
 *.log
+logs/
 npm-debug.log*
 pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ── Runtime & cache ──────────────────────────────────
+*.pid
+*.seed
+*.pid.lock
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+.stylelintcache
+
+# ── Package tarballs ─────────────────────────────────
+*.tgz
+
+# ── Temp files ───────────────────────────────────────
+tmp/
+temp/
+*.tmp
