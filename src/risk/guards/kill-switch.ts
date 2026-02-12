@@ -3,8 +3,8 @@ import { allow, blockFatal, blockFatalWithValues } from "../types.js";
 
 /**
  * Operating modes for the kill switch guard.
- * - `full`: Blocks all trades (entries and exits)
- * - `exits_only`: Only blocks new entries, allows exits
+ * - `full`: Blocks all trades
+ * - `exits_only`: Intended for soft-threshold engagement (currently blocks all trades when engaged)
  */
 export const KillSwitchMode = {
 	Full: "full",

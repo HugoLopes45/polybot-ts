@@ -7,12 +7,7 @@ import type { ClobOrderRequest } from "./types.js";
  * @returns CLOB order request ready for submission
  * @example
  * ```ts
- * const intent: SdkOrderIntent = {
- *   tokenId: "123456",
- *   price: Decimal.from(0.55),
- *   size: Decimal.from(10),
- *   direction: "buy"
- * };
+ * const intent = buyYes(conditionId("0xabc"), marketTokenId("123456"), Decimal.from(0.55), Decimal.from(10));
  * const order = buildClobOrder(intent);
  * // { tokenId: "123456", price: "0.55", size: "10", side: "BUY", orderType: "GTC" }
  * ```

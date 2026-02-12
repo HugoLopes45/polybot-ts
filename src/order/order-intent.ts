@@ -21,7 +21,7 @@ function validateIntent(price: Decimal, size: Decimal): void {
 /**
  * Creates a BUY order intent for a YES token.
  * @param conditionId - The condition ID for the market
- * @param tokenId - The market token ID (YES)
+ * @param tokenId - The market token ID for the YES outcome
  * @param price - Limit price (must be non-negative)
  * @param size - Order size (must be positive)
  * @returns Frozen SdkOrderIntent for buying YES
@@ -52,7 +52,7 @@ export function buyYes(
 /**
  * Creates a BUY order intent for a NO token.
  * @param conditionId - The condition ID for the market
- * @param tokenId - The market token ID (NO)
+ * @param tokenId - The market token ID for the NO outcome
  * @param price - Limit price (must be non-negative)
  * @param size - Order size (must be positive)
  * @returns Frozen SdkOrderIntent for buying NO
@@ -83,7 +83,7 @@ export function buyNo(
 /**
  * Creates a SELL order intent for a YES token.
  * @param conditionId - The condition ID for the market
- * @param tokenId - The market token ID (YES)
+ * @param tokenId - The market token ID for the YES outcome
  * @param price - Limit price (must be non-negative)
  * @param size - Order size (must be positive)
  * @returns Frozen SdkOrderIntent for selling YES
@@ -114,7 +114,7 @@ export function sellYes(
 /**
  * Creates a SELL order intent for a NO token.
  * @param conditionId - The condition ID for the market
- * @param tokenId - The market token ID (NO)
+ * @param tokenId - The market token ID for the NO outcome
  * @param price - Limit price (must be non-negative)
  * @param size - Order size (must be positive)
  * @returns Frozen SdkOrderIntent for selling NO

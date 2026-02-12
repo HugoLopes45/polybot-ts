@@ -3,8 +3,9 @@ import type { EntryGuard, GuardContext, GuardVerdict } from "../types.js";
 import { allow, blockFatal, blockFatalWithValues } from "../types.js";
 
 /**
- * Safety guard that trips when daily loss or consecutive losses exceed thresholds.
- * Provides a cooling period before resetting, preventing rapid re-entry after losses.
+ * Safety guard that trips when daily loss exceeds an absolute threshold or
+ * consecutive losing trades exceed a count. Provides a cooling period before
+ * resetting, preventing rapid re-entry after losses.
  *
  * @example
  * ```ts

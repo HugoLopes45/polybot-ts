@@ -1,7 +1,7 @@
 /**
  * Validation wrapper — thin abstraction over Zod that returns Result<T, ValidationError>.
  *
- * Domain code uses this instead of importing Zod directly (Rule 14).
+ * Domain code uses this instead of importing Zod directly .
  * Re-exports `z` so schemas can be built without a direct zod dependency.
  */
 
@@ -12,7 +12,7 @@ import type { Result } from "../../shared/result.js";
 
 /**
  * Zod library re-export for building validation schemas.
- * Domain code uses this to create schemas without importing zod directly (Rule 14).
+ * Domain code uses this to create schemas without importing zod directly .
  */
 export { z };
 

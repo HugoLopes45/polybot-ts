@@ -81,7 +81,7 @@ export class GuardPipeline {
 
 	/**
 	 * Standard preset: balanced risk guards for normal trading.
-	 * - MaxSpread: normal (0.5%)
+	 * - MaxSpread: normal (5%)
 	 * - MaxPositions: 5
 	 * - Cooldown: normal
 	 * - BookStaleness: 30s
@@ -96,7 +96,7 @@ export class GuardPipeline {
 
 	/**
 	 * Conservative preset: stricter limits for risk-averse strategies.
-	 * - MaxSpread: tight (0.3%)
+	 * - MaxSpread: tight (3%)
 	 * - MaxPositions: 3
 	 * - Exposure: conservative
 	 * - Cooldown: long
@@ -113,7 +113,7 @@ export class GuardPipeline {
 
 	/**
 	 * Aggressive preset: relaxed limits for high-frequency strategies.
-	 * - MaxSpread: wide (1.0%)
+	 * - MaxSpread: wide (10%)
 	 * - MaxPositions: 10
 	 */
 	static aggressive(): GuardPipeline {
@@ -122,7 +122,7 @@ export class GuardPipeline {
 
 	/**
 	 * Minimal preset: only spread guard, for testing or custom configurations.
-	 * - MaxSpread: wide (1.0%)
+	 * - MaxSpread: wide (10%)
 	 */
 	static minimal(): GuardPipeline {
 		return GuardPipeline.create().with(MaxSpreadGuard.wide());

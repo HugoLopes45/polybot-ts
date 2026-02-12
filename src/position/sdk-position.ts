@@ -55,11 +55,11 @@ export class SdkPosition {
 	 * @returns New SdkPosition instance
 	 * @example
 	 * const pos = SdkPosition.open({
-	 *   conditionId: "0x123...",
-	 *   tokenId: "ETH-USD",
-	 *   side: "long",
-	 *   entryPrice: Decimal.from(50000),
-	 *   size: Decimal.from(1),
+	 *   conditionId: conditionId("0x123..."),
+	 *   tokenId: marketTokenId("yes-token"),
+	 *   side: MarketSide.Yes,
+	 *   entryPrice: Decimal.from("0.55"),
+	 *   size: Decimal.from("10"),
 	 *   entryTimeMs: Date.now()
 	 * });
 	 */

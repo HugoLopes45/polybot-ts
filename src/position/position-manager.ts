@@ -45,13 +45,13 @@ export class PositionManager {
 	 * Opens a new position.
 	 * @param cid - Condition ID
 	 * @param tokenId - Market token ID
-	 * @param side - Market side (long/short)
+	 * @param side - Market side (yes/no)
 	 * @param entryPrice - Entry price
 	 * @param size - Position size
 	 * @param entryTimeMs - Entry timestamp in milliseconds
 	 * @returns Ok with new manager, or Err if position already exists
 	 * @example
-	 * const result = manager.open(cid, tokenId, "long", Decimal.from(50000), Decimal.from(1), Date.now());
+	 * const result = manager.open(cid, tokenId, MarketSide.Yes, Decimal.from("0.55"), Decimal.from("10"), Date.now());
 	 */
 	open(
 		cid: ConditionId,
