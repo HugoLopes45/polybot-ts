@@ -243,3 +243,21 @@ export type {
 	PositionAggregate,
 	RiskAggregate,
 } from "./strategy/index.js";
+export {
+	BuiltStrategy,
+	StrategyBuilder,
+	conservative,
+	aggressive,
+	scalper,
+	evHunter,
+	TestRunner,
+	TestContextBuilder,
+} from "./strategy/index.js";
+export type {
+	BuiltStrategyDeps,
+	StateView as StrategyStateView,
+	TickContext,
+	StrategyBuilderDeps,
+	Journal,
+	JournalEntry,
+} from "./strategy/index.js";
