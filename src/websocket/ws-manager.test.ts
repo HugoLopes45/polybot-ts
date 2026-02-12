@@ -1,0 +1,182 @@
+import { describe, expect, it } from "vitest";
+import type { WsState } from "../lib/websocket/types.js";
+import { NetworkError } from "../shared/errors.js";
+import type { TradingError } from "../shared/errors.js";
+import type { Result } from "../shared/result.js";
+import { err, ok } from "../shared/result.js";
+import { WsManager } from "./ws-manager.js";
+
+class StubWsClient {
+	private messageHandler: ((data: string) => void) | null = null;
+	private closeHandler: (() => void) | null = null;
+	private state: WsState = "closed";
+	readonly sent: string[] = [];
+
+	async connect(): Promise<void> {
+		this.state = "open";
+	}
+
+	send(data: string): Result<void, TradingError> {
+		this.sent.push(data);
+		return ok(undefined);
+	}
+
+	close(): void {
+		this.state = "closed";
+		this.closeHandler?.();
+	}
+
+	getState(): WsState {
+		return this.state;
+	}
+
+	onMessage(h: (data: string) => void): void {
+		this.messageHandler = h;
+	}
+
+	onClose(h: () => void): void {
+		this.closeHandler = h;
+	}
+
+	onError(_h: (error: Error) => void): void {}
+
+	simulateMessage(data: string): void {
+		this.messageHandler?.(data);
+	}
+}
+
+function bookUpdateJson(ts = 1000): string {
+	return JSON.stringify({
+		type: "book_update",
+		conditionId: "cond-1",
+		bids: [{ price: "0.50", size: "100" }],
+		asks: [],
+		timestampMs: ts,
+	});
+}
+
+describe("WsManager", () => {
+	it("subscribe adds subscription and sends subscribe message", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		manager.subscribe({ channel: "book", assets: ["cond-1"] });
+
+		expect(client.sent).toHaveLength(1);
+		const msg = JSON.parse(client.sent[0] ?? "");
+		expect(msg).toEqual({ action: "subscribe", channel: "book", assets: ["cond-1"] });
+	});
+
+	it("unsubscribe removes subscription", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		manager.subscribe({ channel: "book", assets: ["cond-1"] });
+		manager.unsubscribe("book");
+
+		expect(client.sent).toHaveLength(2);
+		const msg = JSON.parse(client.sent[1] ?? "");
+		expect(msg).toEqual({ action: "unsubscribe", channel: "book" });
+	});
+
+	it("drain returns buffered messages and clears buffer", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		client.simulateMessage(bookUpdateJson());
+		const messages = manager.drain();
+
+		expect(messages).toHaveLength(1);
+		expect(messages[0]?.type).toBe("book_update");
+		expect(manager.drain()).toHaveLength(0);
+	});
+
+	it("drain returns empty array when no messages", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		expect(manager.drain()).toEqual([]);
+	});
+
+	it("incoming messages are buffered for drain", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		client.simulateMessage(bookUpdateJson(1000));
+		client.simulateMessage(bookUpdateJson(2000));
+
+		const messages = manager.drain();
+		expect(messages).toHaveLength(2);
+	});
+
+	it("generation counter increments on reconnect", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		const gen1 = manager.generation;
+		await manager.reconnect();
+		const gen2 = manager.generation;
+
+		expect(gen2).toBe(gen1 + 1);
+	});
+
+	it("messages from old generation are discarded after reconnect", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		// Buffer a message in generation 1
+		client.simulateMessage(bookUpdateJson(1000));
+		// Reconnect (increments generation, clears buffer)
+		await manager.reconnect();
+		// Old-generation messages should be gone
+		expect(manager.drain()).toHaveLength(0);
+	});
+
+	it("subscriptions are replayed on reconnect", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		manager.subscribe({ channel: "book", assets: ["cond-1"] });
+		client.sent.length = 0;
+
+		await manager.reconnect();
+
+		expect(client.sent).toHaveLength(1);
+		const msg = JSON.parse(client.sent[0] ?? "");
+		expect(msg).toEqual({ action: "subscribe", channel: "book", assets: ["cond-1"] });
+	});
+
+	it("subscribe returns err when send fails", async () => {
+		const client = new StubWsClient();
+		client.send = () => err(new NetworkError("not connected"));
+		const manager = new WsManager(client);
+		const result = manager.subscribe({ channel: "book", assets: ["cond-1"] });
+		expect(result.ok).toBe(false);
+	});
+
+	it("malformed book_update without required fields is discarded", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		client.simulateMessage(JSON.stringify({ type: "book_update" }));
+		expect(manager.drain()).toHaveLength(0);
+	});
+
+	it("malformed user_fill without orderId is discarded", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		client.simulateMessage(JSON.stringify({ type: "user_fill", timestampMs: 1000 }));
+		expect(manager.drain()).toHaveLength(0);
+	});
+});
