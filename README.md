@@ -7,16 +7,13 @@
 <p align="center">
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript&logoColor=white" alt="TypeScript 5.7"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="#testing"><img src="https://img.shields.io/badge/tests-352%20passing-brightgreen" alt="352 tests passing"></a>
-  <a href="#"><img src="https://img.shields.io/badge/zero-runtime%20deps-orange" alt="Zero runtime dependencies"></a>
   <a href="#"><img src="https://img.shields.io/badge/ESM%20%2B%20CJS-dual%20output-blueviolet" alt="ESM + CJS dual output"></a>
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> ·
   <a href="#features">Features</a> ·
-  <a href="#polymarket-trading-bot-architecture">Architecture</a> ·
-  <a href="#api-reference">API</a> ·
+  <a href="#polymarket-trading-bot-examples">Examples</a> ·
   <a href="#contributing">Contributing</a>
 </p>
 
@@ -24,16 +21,7 @@
 
 ## What is Polybot?
 
-**Polybot** is a production-grade TypeScript SDK for building automated trading bots on [Polymarket](https://polymarket.com), the leading prediction market platform on Polygon. It provides everything you need to go from a trading idea to a live, risk-managed strategy — **without reinventing position tracking, risk management, or order lifecycle handling** every time.
-
-Unlike raw API wrappers, Polybot gives you a **complete strategy framework**: signal detection, composable risk guards, exit pipelines, position management, and order state machines — all type-safe, immutable, and tested with 352 unit tests.
-
-### Who is this for?
-
-- **Quantitative traders** building prediction market strategies on Polymarket
-- **Developers** who want a robust TypeScript SDK instead of hacking scripts
-- **Researchers** backtesting prediction market signals and risk models
-- **Teams** that need production-grade risk management (kill switches, circuit breakers, exposure limits)
+**Polybot** is a production-grade TypeScript SDK for building automated trading bots on [Polymarket](https://polymarket.com), the leading prediction market platform on Polygon. It provides everything you need to go from a trading idea to a live, risk-managed strategy — **without reinventing position tracking, risk management, or order lifecycle handling** every time. Built for quantitative traders, developers building robust strategies, researchers backtesting signals, and teams that need production-grade risk management.
 
 ---
 
@@ -108,42 +96,23 @@ const oracleArb: SignalDetector<unknown, { price: Decimal; edge: number }> = {
 <tr>
 <td>
 
-### Position Tracking & P&L
+### Position & Order Management
 - **Immutable position objects** — all mutations return new instances (functional style)
 - **High-water mark tracking** — automatic HWM, drawdown %, and ROI computation
 - **FIFO cost basis** — per-fill tracking with weighted average price
-- **Bounded closed history** — configurable cap on closed position records
-- **Per-side book data** — separate YES/NO order books for prediction markets
-
-</td>
-<td>
-
-### Order Lifecycle Management
 - **7-state order FSM** — Created → Submitted → Open → PartiallyFilled → Filled / Cancelled / Expired
-- **Validated transitions** — `tryTransition()` returns `Result<T,E>`, never throws
 - **OrderHandle builder** — fluent `.onFill().onComplete().timeout()` API
-- **OrderRegistry** — dedup, per-market index, TTL-based cleanup with Clock injection
-
-</td>
-</tr>
-<tr>
-<td>
-
-### TypeScript Type Safety
-- **Branded identifiers** — `ConditionId`, `MarketTokenId`, `ClientOrderId` (zero runtime cost)
-- **BigInt Decimal** — 18-digit fixed-point precision, no floating-point money bugs
-- **Result\<T, E\>** — no thrown exceptions in domain code, pattern-match with `isOk()`/`isErr()`
-- **Discriminated unions** — `GuardVerdict`, `ExitReason`, `FeeModel`, `PendingState`
 
 </td>
 <td>
 
 ### Developer Experience
-- **352 tests** in < 1 second — 100% guard and exit coverage
+- **Branded identifiers** — `ConditionId`, `MarketTokenId`, `ClientOrderId` (zero runtime cost)
+- **BigInt Decimal** — 18-digit fixed-point precision, no floating-point money bugs
+- **Result\<T, E\>** — no thrown exceptions in domain code, pattern-match with `isOk()`/`isErr()`
 - **Zero runtime dependencies** — pure TypeScript, no `node_modules` bloat
 - **ESM + CJS dual output** — works everywhere via tsup
 - **Clock injection** — deterministic tests, no `Date.now()` in domain code
-- **Biome linter** — zero warnings, strict formatting
 
 </td>
 </tr>
@@ -215,195 +184,24 @@ if (closed) {
 
 ---
 
-## Polymarket Trading Bot Architecture
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                    Public API (index.ts)                   │
-├──────────────────────────────────────────────────────────┤
-│                  Strategy Runtime (strategy/)              │
-│  PositionAggregate · RiskAggregate · LifecycleAggregate   │
-│  MonitorAggregate  · AccountingAggregate                  │
-├──────────────────────────────────────────────────────────┤
-│                   Bounded Contexts                        │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────────────┐  │
-│  │ signal │ │  risk  │ │ order  │ │    position      │  │
-│  │ 7 exits│ │15 guard│ │  FSM   │ │  SdkPosition     │  │
-│  │pipeline│ │pipeline│ │registry│ │  PositionManager  │  │
-│  └────────┘ └────────┘ └────────┘ └──────────────────┘  │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────────────┐  │
-│  │context │ │lifecycl│ │ events │ │   accounting     │  │
-│  │ 5 views│ │  FSM   │ │dispatch│ │   fee models     │  │
-│  └────────┘ └────────┘ └────────┘ └──────────────────┘  │
-├──────────────────────────────────────────────────────────┤
-│               Shared Kernel (shared/)                     │
-│  Decimal · Result · Identifiers · Errors · Clock · Time  │
-│  MarketSide · Config                                     │
-└──────────────────────────────────────────────────────────┘
-```
-
-### Design Principles
-
-| Principle | Implementation |
-|-----------|---------------|
-| **Domain-Driven Design** | Bounded contexts (`signal/`, `risk/`, `order/`, `position/`), domain primitives, ubiquitous language |
-| **Immutability** | All aggregates return new instances — `SdkPosition`, `PositionManager`, `ExitPipeline`, `GuardPipeline` |
-| **Interface Segregation** | `DetectorContext` implements 5 focused sub-views: `MarketView`, `PositionView`, `OracleView`, `StateView`, `RiskView` |
-| **Result\<T,E\>** | Domain operations return `Result` — no thrown exceptions, explicit error handling |
-| **Dependency Injection** | All time-dependent code accepts a `Clock` interface — deterministic testing |
-| **Zero Dependencies** | Core SDK has no runtime dependencies — pure TypeScript |
-
-### How a Polymarket Trading Bot Processes Market Data
-
-```
-Market Update (WebSocket / Polling)
-  │
-  ├─ Watchdog.touch()               — connectivity monitoring
-  ├─ StateMachine.canOpen()?        — lifecycle gate (7 states)
-  ├─ Build DetectorContext           — immutable snapshot of market state
-  │
-  ├─ EXIT: ExitPipeline.evaluate()  — check each open position
-  │    └─ If exit triggered → submit sell → close position → emit events
-  │
-  ├─ GUARD: GuardPipeline.evaluate()— 15 pre-trade safety checks
-  │    └─ If any guard blocks → emit RiskLimitBreached → skip entry
-  │
-  ├─ DETECT: detector.detectEntry() — YOUR strategy logic runs here
-  │    └─ If signal found → toOrder() → submit to exchange
-  │
-  └─ BOOKKEEP: position.open() → journal → domain events
-```
-
----
-
-## API Reference
-
-### Core Interfaces for Polymarket Bots
-
-#### `SignalDetector<TConfig, TSignal>` — The Strategy Interface
-
-The **only interface you implement** to create a Polymarket trading bot:
-
-```typescript
-interface SignalDetector<TConfig = unknown, TSignal = unknown> {
-  readonly name: string;
-  detectEntry(ctx: DetectorContextLike): TSignal | null;
-  toOrder(signal: TSignal, ctx: DetectorContextLike): SdkOrderIntent;
-}
-```
-
-#### `EntryGuard` — Pre-Trade Risk Check
-
-```typescript
-interface EntryGuard {
-  readonly name: string;
-  check(ctx: GuardContext): GuardVerdict; // Allow or Block with diagnostics
-  readonly isSafetyCritical?: boolean;
-}
-```
-
-#### `ExitPolicy` — Position Exit Detection
-
-```typescript
-interface ExitPolicy {
-  readonly name: string;
-  shouldExit(position: PositionLike, ctx: DetectorContextLike): ExitReason | null;
-}
-```
-
-### Built-in Risk Guards for Prediction Market Trading
-
-| Guard | What It Does | Safety Critical |
-|-------|-------------|:-:|
-| `CooldownGuard` | Enforces minimum time between trades | |
-| `MaxSpreadGuard` | Blocks when bid-ask spread is too wide | |
-| `MaxPositionsGuard` | Limits concurrent open positions | |
-| `ExposureGuard` | Caps total exposure as % of balance | |
-| `BalanceGuard` | Requires minimum account balance | |
-| `DuplicateOrderGuard` | Prevents duplicate pending orders per market | |
-| `RateLimitGuard` | Limits orders per time window | |
-| `KillSwitchGuard` | Auto-halts on soft (3%) and hard (5%) daily loss | **Yes** |
-| `CircuitBreakerGuard` | Trips on daily loss limit or consecutive losses | **Yes** |
-| `BookStalenessGuard` | Rejects trades when orderbook data is stale | |
-| `MinEdgeGuard` | Requires minimum oracle-vs-market edge | |
-| `PortfolioRiskGuard` | Limits portfolio-level drawdown | |
-| `PerMarketLimitGuard` | Caps order count per individual market | |
-| `ToxicityGuard` | Blocks trading in known toxic markets | |
-| `UsdcRejectionGuard` | Rejects USDC.e bridged token markets | |
-
-### Built-in Exit Policies for Automated Trading
-
-| Exit Policy | When It Triggers | Urgency |
-|-------------|-----------------|---------|
-| `TakeProfitExit` | ROI exceeds target threshold | Low |
-| `StopLossExit` | Loss exceeds maximum allowed | High |
-| `TrailingStopExit` | Drawdown from high-water mark exceeds % | Medium |
-| `TimeExit` | Position held longer than max duration | Medium |
-| `EdgeReversalExit` | Trading edge drops below minimum | Medium |
-| `NearExpiryExit` | Prediction market approaching expiration | High |
-| `EmergencyExit` | Max hold time exceeded or manual trigger | Emergency |
-
----
-
-## Project Structure
-
-```
-src/
-├── shared/           # Decimal, Result, branded identifiers, errors, Clock, config
-├── lifecycle/        # Strategy state machine (7 states), connectivity watchdog
-├── events/           # Domain events, SDK events, typed event dispatcher
-├── signal/           # SignalDetector interface, ExitPipeline, 7 exit policies
-├── risk/             # EntryGuard interface, GuardPipeline, 15 risk guards
-├── position/         # SdkPosition, PositionManager, FIFO CostBasis
-├── accounting/       # Fee models (none, fixed notional bps, profit-based)
-├── order/            # PendingState FSM, OrderIntent, OrderHandle, OrderRegistry
-├── context/          # DetectorContext facade + 5 ISP sub-views
-├── strategy/         # Aggregate types (position, risk, lifecycle, monitor, accounting)
-└── index.ts          # Public API — single barrel export
-```
-
----
-
 ## Development
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Run all 352 tests (< 1 second)
-pnpm test
-
-# Watch mode for TDD
-pnpm test:watch
-
-# TypeScript strict type checking
-pnpm typecheck
-
-# Biome linting (zero warnings)
-pnpm lint
-
-# Build ESM + CJS output
-pnpm build
-
-# Run all CI checks
-pnpm ci
+pnpm install          # Install dependencies
+pnpm test             # Run tests
+pnpm test:watch       # Watch mode for TDD
+pnpm typecheck        # TypeScript strict type checking
+pnpm lint             # Biome linting
+pnpm build            # Build ESM + CJS output
+pnpm ci               # Run all CI checks
 ```
-
-### Testing
-
-- **Test-Driven Development** — every feature written test-first (Red → Green → Refactor)
-- **352 tests** across 24 test files, total runtime < 1 second
-- **Table-driven tests** — guards and exits tested via parameterized inputs
-- **Clock injection** — deterministic time in all tests via `FakeClock`
-- **Zero mocks** — pure functions + dependency injection, no mocking libraries needed
-- **Arrange-Act-Assert** — consistent test structure throughout
 
 ---
 
 ## Roadmap
 
-- [x] **Phase 0** — Shared kernel, lifecycle state machine, domain events (118 tests)
-- [x] **Phase 1** — Risk guards, exit pipelines, position tracking, order FSM (352 tests)
+- [x] **Phase 0** — Shared kernel, lifecycle state machine, domain events
+- [x] **Phase 1** — Risk guards, exit pipelines, position tracking, order FSM
 - [ ] **Phase 2** — Execution layer, Polymarket CLOB integration, authentication
 - [ ] **Phase 3** — WebSocket real-time market data, orderbook streaming
 - [ ] **Phase 4** — Strategy runtime, builder pattern, presets
@@ -421,9 +219,6 @@ pnpm ci
 | Exit pipeline (7 policies) | Yes | No | Manual |
 | Position tracking with P&L | Yes | No | Basic |
 | Order state machine (7 states) | Yes | No | No |
-| Type-safe branded identifiers | Yes | No | No |
-| Immutable domain objects | Yes | N/A | No |
-| 352+ unit tests | Yes | Varies | Rarely |
 | Zero runtime dependencies | Yes | No | Varies |
 
 ---
@@ -438,7 +233,7 @@ Contributions are welcome! Please follow these guidelines:
 4. **Keep files < 800 LOC** — propose a split plan if needed
 5. **Run all checks** before submitting: `pnpm ci`
 
-See the [ARCHITECTURE.md](ARCHITECTURE.md) for design decisions and module boundaries.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for design decisions and module boundaries.
 
 ---
 
