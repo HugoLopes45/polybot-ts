@@ -235,6 +235,18 @@ export {
 export { WsClient } from "./lib/websocket/index.js";
 export type { WsConfig, WsState } from "./lib/websocket/index.js";
 
+// ── Lib: Logger ─────────────────────────────────────────────────────
+export { createLogger } from "./lib/logger/index.js";
+export type { Logger, LoggerConfig, LogLevel } from "./lib/logger/index.js";
+
+// ── Lib: Validation ─────────────────────────────────────────────────
+export { validate, ValidationError, z } from "./lib/validation/index.js";
+export type { ValidationIssue } from "./lib/validation/index.js";
+
+// ── Lib: Events ─────────────────────────────────────────────────────
+export { TypedEmitter } from "./lib/events/index.js";
+export type { EventMap } from "./lib/events/index.js";
+
 // ── Strategy ────────────────────────────────────────────────────────
 export type {
 	AccountingAggregate,
