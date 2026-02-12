@@ -15,40 +15,60 @@ export interface Journal {
 }
 
 export type JournalEntry =
-	| { type: "entry_signal"; signal: unknown; intent: SdkOrderIntent; timestamp: number }
-	| { type: "exit_signal"; conditionId: ConditionId; reason: ExitReason; timestamp: number }
 	| {
-			type: "order_submitted";
-			intent: SdkOrderIntent;
-			clientOrderId: ClientOrderId;
-			timestamp: number;
+			readonly type: "entry_signal";
+			readonly signal: unknown;
+			readonly intent: SdkOrderIntent;
+			readonly timestamp: number;
 	  }
 	| {
-			type: "order_filled";
-			clientOrderId: ClientOrderId;
-			fillPrice: number;
-			size: number;
-			fee: number;
-			timestamp: number;
+			readonly type: "exit_signal";
+			readonly conditionId: ConditionId;
+			readonly reason: ExitReason;
+			readonly timestamp: number;
 	  }
 	| {
-			type: "position_opened";
-			conditionId: ConditionId;
-			tokenId: MarketTokenId;
-			side: MarketSide;
-			entryPrice: number;
-			size: number;
-			timestamp: number;
+			readonly type: "order_submitted";
+			readonly intent: SdkOrderIntent;
+			readonly clientOrderId: ClientOrderId;
+			readonly timestamp: number;
 	  }
 	| {
-			type: "position_closed";
-			conditionId: ConditionId;
-			entryPrice: number;
-			exitPrice: number;
-			pnl: number;
-			reason: ExitReasonType;
-			fee?: number;
-			timestamp: number;
+			readonly type: "order_filled";
+			readonly clientOrderId: ClientOrderId;
+			readonly fillPrice: number;
+			readonly size: number;
+			readonly fee: number;
+			readonly timestamp: number;
 	  }
-	| { type: "guard_blocked"; guardName: string; reason: string; timestamp: number }
-	| { type: "error"; code: string; message: string; timestamp: number };
+	| {
+			readonly type: "position_opened";
+			readonly conditionId: ConditionId;
+			readonly tokenId: MarketTokenId;
+			readonly side: MarketSide;
+			readonly entryPrice: number;
+			readonly size: number;
+			readonly timestamp: number;
+	  }
+	| {
+			readonly type: "position_closed";
+			readonly conditionId: ConditionId;
+			readonly entryPrice: number;
+			readonly exitPrice: number;
+			readonly pnl: number;
+			readonly reason: ExitReasonType;
+			readonly fee?: number;
+			readonly timestamp: number;
+	  }
+	| {
+			readonly type: "guard_blocked";
+			readonly guardName: string;
+			readonly reason: string;
+			readonly timestamp: number;
+	  }
+	| {
+			readonly type: "error";
+			readonly code: string;
+			readonly message: string;
+			readonly timestamp: number;
+	  };
