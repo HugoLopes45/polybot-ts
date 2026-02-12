@@ -7,6 +7,7 @@ import EventEmitter from "eventemitter3";
 // biome-ignore lint/suspicious/noExplicitAny: base constraint for event handler signatures
 export type EventMap = Record<string, (...args: any[]) => void>;
 
+/** Type-safe event emitter wrapping eventemitter3 with compile-time handler validation. */
 export class TypedEmitter<TEvents extends EventMap> {
 	private readonly ee = new EventEmitter();
 

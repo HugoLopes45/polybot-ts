@@ -1,5 +1,8 @@
 /**
  * OrderRegistry — tracks pending orders with dedup and TTL cleanup.
+ *
+ * Maintains in-memory state of all pending orders, indexed by client order ID
+ * and by market (conditionId). Supports TTL-based cleanup of terminal orders.
  */
 
 import type { ClientOrderId, ConditionId } from "../shared/identifiers.js";
@@ -7,6 +10,10 @@ import { type Clock, SystemClock } from "../shared/time.js";
 import { isTerminal } from "./pending-state-machine.js";
 import type { PendingOrder, PendingState } from "./types.js";
 
+/**
+ * In-memory registry for tracking pending orders.
+ * Provides deduplication, market-based queries, and TTL cleanup.
+ */
 export class OrderRegistry {
 	private readonly orders: Map<string, PendingOrder>;
 	private readonly byMarketIndex: Map<string, string[]>;
@@ -20,10 +27,19 @@ export class OrderRegistry {
 		this.clock = clock;
 	}
 
+	/**
+	 * Creates a new OrderRegistry instance.
+	 * @param clock - Optional clock for time-based operations (defaults to SystemClock)
+	 */
 	static create(clock?: Clock): OrderRegistry {
 		return new OrderRegistry(clock ?? SystemClock);
 	}
 
+	/**
+	 * Registers a new pending order in the registry.
+	 * @param order - The pending order to track
+	 * @throws Error if the order is already being tracked
+	 */
 	track(order: PendingOrder): void {
 		const key = order.clientOrderId as string;
 		if (this.orders.has(key)) {
@@ -36,10 +52,20 @@ export class OrderRegistry {
 		this.byMarketIndex.set(marketKey, [...existing, key]);
 	}
 
+	/**
+	 * Retrieves a pending order by client order ID.
+	 * @param clientOrderId - The client order ID to look up
+	 * @returns The pending order if found, null otherwise
+	 */
 	get(clientOrderId: ClientOrderId): PendingOrder | null {
 		return this.orders.get(clientOrderId as string) ?? null;
 	}
 
+	/**
+	 * Updates the state of a tracked order.
+	 * @param clientOrderId - The client order ID to update
+	 * @param newState - The new pending state
+	 */
 	updateState(clientOrderId: ClientOrderId, newState: PendingState): void {
 		const key = clientOrderId as string;
 		const order = this.orders.get(key);
@@ -53,11 +79,19 @@ export class OrderRegistry {
 		}
 	}
 
+	/**
+	 * Retrieves all pending orders for a specific market.
+	 * @param conditionId - The market condition ID
+	 * @returns Array of pending orders for the market
+	 */
 	byMarket(conditionId: ConditionId): readonly PendingOrder[] {
 		const keys = this.byMarketIndex.get(conditionId as string) ?? [];
 		return keys.map((k) => this.orders.get(k)).filter((o): o is PendingOrder => o !== undefined);
 	}
 
+	/**
+	 * Returns the count of active (non-terminal) orders.
+	 */
 	activeCount(): number {
 		let count = 0;
 		for (const order of this.orders.values()) {
@@ -66,6 +100,11 @@ export class OrderRegistry {
 		return count;
 	}
 
+	/**
+	 * Removes terminal orders older than the specified TTL.
+	 * @param ttlMs - Time-to-live in milliseconds for terminal orders
+	 * @returns Number of orders cleaned up
+	 */
 	cleanup(ttlMs: number): number {
 		const now = this.clock.now();
 		let cleaned = 0;

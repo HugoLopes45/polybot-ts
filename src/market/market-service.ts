@@ -5,6 +5,9 @@ import { SystemClock } from "../shared/time.js";
 import type { Clock } from "../shared/time.js";
 import type { MarketInfo } from "./types.js";
 
+/**
+ * Dependencies required by MarketService to interact with external market data.
+ */
 export interface MarketServiceDeps {
 	getMarket(id: string): Promise<MarketInfo | null>;
 	searchMarkets(query: string): Promise<MarketInfo[]>;
@@ -15,6 +18,10 @@ interface CacheEntry {
 	readonly expiresAtMs: number;
 }
 
+/**
+ * Service for accessing market information with caching support.
+ * Provides methods to get market details and search markets.
+ */
 export class MarketService {
 	private readonly deps: MarketServiceDeps;
 	private readonly clock: Clock;

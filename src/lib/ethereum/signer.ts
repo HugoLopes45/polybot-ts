@@ -8,6 +8,14 @@ import type { EthAddress, EthSigner, SignTypedDataParams } from "./types.js";
 
 const HEX_KEY_RE = /^0x[0-9a-fA-F]{64}$/;
 
+/**
+ * Creates an EthSigner from a private key hex string.
+ * @param privateKey - 64-character hex string (with 0x prefix)
+ * @returns EthSigner instance
+ * @throws Error if private key format is invalid
+ * @example
+ * const signer = createSigner("0x742d35Cc6634C0532925a3b844Bc9e7595f0fEb1...");
+ */
 export function createSigner(privateKey: string): EthSigner {
 	if (!HEX_KEY_RE.test(privateKey)) {
 		throw new Error("Invalid private key format");

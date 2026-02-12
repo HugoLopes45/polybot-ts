@@ -9,6 +9,21 @@ import type { Credentials } from "./types.js";
 
 const METHOD_RE = /^[A-Z]+$/;
 
+/**
+ * Builds L2 authentication headers for the Polymarket API using HMAC-SHA256
+ * signing. The signature is computed from the timestamp, HTTP method, path,
+ * and optional request body.
+ *
+ * @param credentials - The opaque credentials (unwrapped internally)
+ * @param timestamp - Unix timestamp in seconds
+ * @param method - HTTP method (e.g., "GET", "POST")
+ * @param path - API endpoint path (must start with /)
+ * @param body - Optional request body for POST/PUT requests
+ * @returns Record containing POLY_ADDRESS, POLY_SIGNATURE, POLY_TIMESTAMP, and POLY_NONCE headers
+ * @throws AuthError if credentials are invalid or parameters are malformed
+ * @example
+ * const headers = buildL2Headers(credentials, Date.now() / 1000, "GET", "/orders");
+ */
 export function buildL2Headers(
 	credentials: Credentials,
 	timestamp: number,

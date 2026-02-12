@@ -24,6 +24,21 @@ const DERIVATION_TYPES = {
 
 // ── Key derivation ──────────────────────────────────────────────────
 
+/**
+ * Derives Polymarket API credentials from an Ethereum signer using EIP-712
+ * typed data signing. The signer signs a message to prove ownership of an
+ * Ethereum address, which is then used to derive HMAC keys for API authentication.
+ *
+ * @param signer - An Ethereum signer implementing signTypedData
+ * @param nonce - Optional nonce for the derivation (defaults to 0)
+ * @returns Ok with ApiKeySet on success, or Err with TradingError on failure
+ * @example
+ * const result = await deriveL2ApiKeys(signer);
+ * if (result.ok) {
+ *   const { apiKey, secret, passphrase } = result.value;
+ *   const credentials = createCredentials(result.value);
+ * }
+ */
 export async function deriveL2ApiKeys(
 	signer: EthSigner,
 	nonce = 0,

@@ -5,6 +5,7 @@
  * retry logic and circuit breaker behavior at the execution layer.
  */
 
+/** Error severity categories that drive retry and circuit breaker behavior. */
 export const ErrorCategory = {
 	Retryable: "retryable",
 	NonRetryable: "non_retryable",
@@ -13,6 +14,7 @@ export const ErrorCategory = {
 
 export type ErrorCategory = (typeof ErrorCategory)[keyof typeof ErrorCategory];
 
+/** Base error class for all trading operations, with category-based retry semantics. */
 export class TradingError extends Error {
 	readonly category: ErrorCategory;
 	readonly code: string;
@@ -38,6 +40,7 @@ export class TradingError extends Error {
 
 // ── Specific error types ─────────────────────────────────────────────
 
+/** Retryable error for network connectivity failures. */
 export class NetworkError extends TradingError {
 	constructor(message: string, context: Record<string, unknown> = {}) {
 		super(message, "NETWORK_ERROR", ErrorCategory.Retryable, context);
@@ -45,6 +48,7 @@ export class NetworkError extends TradingError {
 	}
 }
 
+/** Retryable error for request timeouts. */
 export class TimeoutError extends TradingError {
 	constructor(message: string, context: Record<string, unknown> = {}) {
 		super(message, "TIMEOUT_ERROR", ErrorCategory.Retryable, context);
@@ -52,6 +56,7 @@ export class TimeoutError extends TradingError {
 	}
 }
 
+/** Retryable error for rate-limit (HTTP 429) responses; includes retry-after hint. */
 export class RateLimitError extends TradingError {
 	readonly retryAfterMs: number;
 	constructor(message: string, retryAfterMs: number, context: Record<string, unknown> = {}) {
@@ -61,6 +66,7 @@ export class RateLimitError extends TradingError {
 	}
 }
 
+/** Non-retryable error for authentication/authorization failures. */
 export class AuthError extends TradingError {
 	constructor(message: string, context: Record<string, unknown> = {}) {
 		super(message, "AUTH_ERROR", ErrorCategory.NonRetryable, context);
@@ -68,6 +74,7 @@ export class AuthError extends TradingError {
 	}
 }
 
+/** Non-retryable error when the exchange rejects an order. */
 export class OrderRejectedError extends TradingError {
 	constructor(message: string, context: Record<string, unknown> = {}) {
 		super(message, "ORDER_REJECTED", ErrorCategory.NonRetryable, context);
@@ -75,6 +82,7 @@ export class OrderRejectedError extends TradingError {
 	}
 }
 
+/** Non-retryable error when USDC balance is too low for the requested operation. */
 export class InsufficientBalanceError extends TradingError {
 	constructor(message: string, context: Record<string, unknown> = {}) {
 		super(message, "INSUFFICIENT_BALANCE", ErrorCategory.NonRetryable, context);
@@ -82,6 +90,7 @@ export class InsufficientBalanceError extends TradingError {
 	}
 }
 
+/** Fatal error for invalid or missing configuration. */
 export class ConfigError extends TradingError {
 	constructor(message: string, context: Record<string, unknown> = {}) {
 		super(message, "CONFIG_ERROR", ErrorCategory.Fatal, context);
@@ -89,6 +98,7 @@ export class ConfigError extends TradingError {
 	}
 }
 
+/** Fatal error for unexpected internal failures. */
 export class SystemError extends TradingError {
 	constructor(message: string, context: Record<string, unknown> = {}) {
 		super(message, "SYSTEM_ERROR", ErrorCategory.Fatal, context);
@@ -98,6 +108,7 @@ export class SystemError extends TradingError {
 
 // ── Classification helper ────────────────────────────────────────────
 
+/** Classify an unknown error into the appropriate TradingError subtype by inspecting the message. */
 export function classifyError(error: unknown): TradingError {
 	if (error instanceof TradingError) return error;
 	if (error instanceof Error) {

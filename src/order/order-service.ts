@@ -18,18 +18,44 @@ import type { OrderRegistry } from "./order-registry.js";
 import { PendingState } from "./types.js";
 import type { OrderSide, PendingOrder } from "./types.js";
 
+/** Function type to customize the OrderHandleBuilder before building. */
 type HandleCustomizer = (builder: OrderHandleBuilder) => OrderHandleBuilder;
 
+/**
+ * Orchestrates order submission, tracking, and lifecycle management.
+ *
+ * Coordinates with an Executor for order submission/cancellation and
+ * maintains order state in an OrderRegistry.
+ */
 export class OrderService {
 	private readonly registry: OrderRegistry;
 	private readonly clock: Clock;
 	private orderCounter = 0;
 
+	/**
+	 * Creates a new OrderService.
+	 * @param registry - The order registry for tracking pending orders
+	 * @param clock - Optional clock for time-based operations (defaults to SystemClock)
+	 */
 	constructor(registry: OrderRegistry, clock: Clock = SystemClock) {
 		this.registry = registry;
 		this.clock = clock;
 	}
 
+	/**
+	 * Submits an order intent through the executor.
+	 * @param intent - The order intent to submit
+	 * @param executor - The executor to use for submission
+	 * @param customize - Optional function to customize the OrderHandleBuilder
+	 * @returns Result containing the OrderHandle or a TradingError
+	 *
+	 * @example
+	 * ```ts
+	 * const result = await service.submit(intent, executor, builder =>
+	 *   builder.onComplete(r => console.log("Done:", r))
+	 * );
+	 * ```
+	 */
 	async submit(
 		intent: SdkOrderIntent,
 		executor: Executor,
@@ -76,6 +102,12 @@ export class OrderService {
 		return ok(handle);
 	}
 
+	/**
+	 * Cancels a pending order.
+	 * @param orderId - The client order ID to cancel
+	 * @param executor - The executor to use for cancellation
+	 * @returns Result indicating success or a TradingError
+	 */
 	async cancel(orderId: ClientOrderId, executor: Executor): Promise<Result<void, TradingError>> {
 		const tracked = this.registry.get(orderId);
 		if (!tracked) {

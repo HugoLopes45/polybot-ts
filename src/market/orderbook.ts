@@ -1,6 +1,14 @@
 import { Decimal } from "../shared/decimal.js";
 import type { OrderbookDelta, OrderbookLevel, OrderbookSnapshot } from "./types.js";
 
+/**
+ * Applies a delta update to an orderbook snapshot, returning a new snapshot.
+ * @param book - The current orderbook snapshot
+ * @param delta - The delta containing updates to apply
+ * @returns A new OrderbookSnapshot with the delta applied
+ * @example
+ * const updated = applyDelta(currentBook, delta);
+ */
 export function applyDelta(book: OrderbookSnapshot, delta: OrderbookDelta): OrderbookSnapshot {
 	const bids = mergeLevels(book.bids, delta.bids, "desc");
 	const asks = mergeLevels(book.asks, delta.asks, "asc");
@@ -33,14 +41,29 @@ function mergeLevels(
 	return sorted;
 }
 
+/**
+ * Returns the best (highest) bid price in the orderbook.
+ * @param book - The orderbook snapshot
+ * @returns The best bid price as a Decimal, or null if no bids exist
+ */
 export function bestBid(book: OrderbookSnapshot): Decimal | null {
 	return book.bids[0]?.price ?? null;
 }
 
+/**
+ * Returns the best (lowest) ask price in the orderbook.
+ * @param book - The orderbook snapshot
+ * @returns The best ask price as a Decimal, or null if no asks exist
+ */
 export function bestAsk(book: OrderbookSnapshot): Decimal | null {
 	return book.asks[0]?.price ?? null;
 }
 
+/**
+ * Calculates the spread (difference between best ask and best bid).
+ * @param book - The orderbook snapshot
+ * @returns The spread as a Decimal, or null if either side is empty
+ */
 export function spread(book: OrderbookSnapshot): Decimal | null {
 	const bid = bestBid(book);
 	const ask = bestAsk(book);
@@ -48,6 +71,11 @@ export function spread(book: OrderbookSnapshot): Decimal | null {
 	return ask.sub(bid);
 }
 
+/**
+ * Calculates the mid-price (average of best bid and best ask).
+ * @param book - The orderbook snapshot
+ * @returns The mid-price as a Decimal, or null if either side is empty
+ */
 export function midPrice(book: OrderbookSnapshot): Decimal | null {
 	const bid = bestBid(book);
 	const ask = bestAsk(book);
@@ -55,6 +83,16 @@ export function midPrice(book: OrderbookSnapshot): Decimal | null {
 	return bid.add(ask).div(Decimal.from(2));
 }
 
+/**
+ * Calculates the effective price for executing a trade of a given size.
+ * Walks through the orderbook levels to compute the average fill price.
+ * @param book - The orderbook snapshot
+ * @param size - The trade size
+ * @param side - Either "buy" or "sell"
+ * @returns The effective price (average fill price), or null if insufficient liquidity
+ * @example
+ * const price = effectivePrice(book, Decimal.from(10), "buy");
+ */
 export function effectivePrice(
 	book: OrderbookSnapshot,
 	size: Decimal,

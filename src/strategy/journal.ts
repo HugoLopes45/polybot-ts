@@ -10,10 +10,12 @@ import type { ClientOrderId, ConditionId, MarketTokenId } from "../shared/identi
 import type { MarketSide } from "../shared/market-side.js";
 import type { ExitReason, ExitReasonType, SdkOrderIntent } from "../signal/types.js";
 
+/** Persistence interface for recording strategy decisions and events. */
 export interface Journal {
 	record(event: JournalEntry): Promise<void>;
 }
 
+/** Discriminated union of all recordable strategy events (signals, orders, positions, guards, errors). */
 export type JournalEntry =
 	| {
 			readonly type: "entry_signal";

@@ -2,6 +2,17 @@ import { Decimal } from "../shared/decimal.js";
 import { bestAsk, bestBid, spread as calcSpread } from "./orderbook.js";
 import type { MarketInfo, OrderbookSnapshot, ScanResult } from "./types.js";
 
+/**
+ * Scans multiple markets for trading opportunities based on spread and edge.
+ * Calculates a score for each market and returns them sorted by score (descending).
+ * @param markets - Array of market information to scan
+ * @param books - Map of conditionId to orderbook snapshot
+ * @param oraclePrice - Optional map of oracle prices for comparison
+ * @returns Array of ScanResult sorted by score (highest first)
+ * @example
+ * const results = scan(markets, orderbooks, oraclePrices);
+ * // results[0] has the best opportunity
+ */
 export function scan(
 	markets: readonly MarketInfo[],
 	books: ReadonlyMap<string, OrderbookSnapshot>,

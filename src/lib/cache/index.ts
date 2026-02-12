@@ -1,5 +1,10 @@
+/**
+ * Configuration for a TTL + LRU cache.
+ */
 export interface CacheConfig {
+	/** Time-to-live in milliseconds. Default: 60000ms (1 minute) */
 	ttl: number;
+	/** Maximum number of entries before LRU eviction */
 	maxSize: number;
 }
 
@@ -10,12 +15,34 @@ interface CacheEntry<T> {
 	lastAccess: number;
 }
 
+/**
+ * Cache statistics for observability.
+ */
 export interface CacheStats {
+	/** Number of successful cache hits */
 	hits: number;
+	/** Number of cache misses */
 	misses: number;
+	/** Hit rate as a fraction between 0 and 1 */
 	hitRate: number;
 }
 
+/**
+ * TTL + LRU cache implementation.
+ *
+ * Supports:
+ * - Time-based expiration (TTL)
+ * - Least Recently Used (LRU) eviction
+ * - Cache-aside pattern via getOrFetch
+ * - Statistics tracking
+ *
+ * @example
+ * ```typescript
+ * const cache = new Cache<string>({ ttl: 60000, maxSize: 100 });
+ * cache.set("key", "value");
+ * cache.get("key"); // "value"
+ * ```
+ */
 export class Cache<T> {
 	private readonly cache = new Map<string, CacheEntry<T>>();
 	private readonly ttl: number;
@@ -23,11 +50,20 @@ export class Cache<T> {
 	private hits = 0;
 	private misses = 0;
 
+	/**
+	 * Creates a new cache with the specified configuration.
+	 * @param config - Cache configuration with ttl and maxSize
+	 */
 	constructor(config: CacheConfig) {
 		this.ttl = config.ttl;
 		this.maxSize = config.maxSize;
 	}
 
+	/**
+	 * Retrieves a value from the cache.
+	 * @param key - The cache key
+	 * @returns The cached value or undefined if not found/expired
+	 */
 	get(key: string): T | undefined {
 		const entry = this.cache.get(key);
 		if (!entry) {
@@ -47,6 +83,12 @@ export class Cache<T> {
 		return entry.value;
 	}
 
+	/**
+	 * Stores a value in the cache.
+	 * @param key - The cache key
+	 * @param value - The value to cache
+	 * @param ttl - Optional custom TTL in milliseconds
+	 */
 	set(key: string, value: T, ttl?: number): void {
 		if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
 			this.evictLRU();
@@ -60,6 +102,13 @@ export class Cache<T> {
 		});
 	}
 
+	/**
+	 * Gets a cached value or fetches it if not present.
+	 * Implements the cache-aside pattern.
+	 * @param key - The cache key
+	 * @param fetcher - Async function to fetch the value if not cached
+	 * @returns The cached or freshly fetched value
+	 */
 	async getOrFetch(key: string, fetcher: () => Promise<T>): Promise<T> {
 		const cached = this.get(key);
 		if (cached !== undefined) {
@@ -71,14 +120,26 @@ export class Cache<T> {
 		return value;
 	}
 
+	/**
+	 * Removes a value from the cache.
+	 * @param key - The cache key to delete
+	 * @returns true if the key was present, false otherwise
+	 */
 	delete(key: string): boolean {
 		return this.cache.delete(key);
 	}
 
+	/**
+	 * Clears all entries from the cache.
+	 */
 	clear(): void {
 		this.cache.clear();
 	}
 
+	/**
+	 * Gets cache statistics.
+	 * @returns Object with hits, misses, and hitRate
+	 */
 	getStats(): CacheStats {
 		const total = this.hits + this.misses;
 		return {

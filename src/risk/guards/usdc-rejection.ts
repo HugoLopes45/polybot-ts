@@ -3,6 +3,10 @@ import { allow, block } from "../types.js";
 
 const USDC_BRIDGED_PATTERN = /usdc\.e/i;
 
+/**
+ * Guard that rejects USDC.e (bridged USDC) markets.
+ * Blocks orders on markets containing "usdc.e" pattern in the condition ID.
+ */
 export class UsdcRejectionGuard implements EntryGuard {
 	readonly name = "UsdcRejection";
 

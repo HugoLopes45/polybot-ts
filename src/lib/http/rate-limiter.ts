@@ -1,5 +1,8 @@
 import type { Clock } from "../../shared/time.js";
 
+/**
+ * Configuration for TokenBucketRateLimiter.
+ */
 export interface RateLimiterConfig {
 	readonly capacity: number;
 	readonly refillRate: number;
@@ -28,6 +31,14 @@ export class TokenBucketRateLimiter {
 		this.lastRefillMs = this.clock.now();
 	}
 
+	/**
+	 * Attempts to acquire one token without blocking.
+	 * @returns true if a token was acquired, false otherwise.
+	 * @example
+	 * if (limiter.tryAcquire()) {
+	 *   // proceed with request
+	 * }
+	 */
 	tryAcquire(): boolean {
 		this.refill();
 		if (this.tokens >= 1) {
@@ -37,11 +48,19 @@ export class TokenBucketRateLimiter {
 		return false;
 	}
 
+	/**
+	 * Returns the current number of available tokens (after refill).
+	 * @returns Number of tokens available (floored to integer).
+	 */
 	availableTokens(): number {
 		this.refill();
 		return Math.floor(this.tokens);
 	}
 
+	/**
+	 * Waits until a token becomes available, then acquires it.
+	 * @returns Promise that resolves when a token is acquired.
+	 */
 	waitForToken(): Promise<void> {
 		if (this.tryAcquire()) {
 			return Promise.resolve();

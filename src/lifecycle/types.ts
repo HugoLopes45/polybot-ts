@@ -28,6 +28,7 @@ export type StrategyState = (typeof StrategyState)[keyof typeof StrategyState];
 
 // ── Pause/Halt Reasons ───────────────────────────────────────────────
 
+/** Reasons a strategy can be paused -- recoverable, exits still allowed. */
 export const PauseReason = {
 	UserRequested: "user_requested",
 	RiskLimitBreached: "risk_limit_breached",
@@ -37,6 +38,7 @@ export const PauseReason = {
 
 export type PauseReason = (typeof PauseReason)[keyof typeof PauseReason];
 
+/** Reasons a strategy is halted -- non-recoverable, only shutdown allowed. */
 export const HaltReason = {
 	KillSwitchTriggered: "kill_switch_triggered",
 	CriticalDrift: "critical_drift",

@@ -35,6 +35,7 @@ import type {
  */
 export type TickContext = DetectorContextLike & GuardContext;
 
+/** All dependencies required to construct a BuiltStrategy. */
 export interface BuiltStrategyDeps {
 	position: PositionAggregate;
 	risk: RiskAggregate;
@@ -46,11 +47,13 @@ export interface BuiltStrategyDeps {
 	journal: Journal | null;
 }
 
+/** Minimal view into strategy lifecycle state for the tick loop. */
 export interface StateView {
 	canOpen(): boolean;
 	canClose(): boolean;
 }
 
+/** The tick-loop engine -- composes all aggregates and orchestrates signal detection, guard checks, entries, and exits. */
 export class BuiltStrategy {
 	// Intentionally mutable: PositionManager is immutable (open/close return new instances)
 	private positionManager: PositionManager;

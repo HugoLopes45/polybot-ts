@@ -2,6 +2,16 @@ import type { Decimal } from "../../shared/decimal.js";
 import type { EntryGuard, GuardContext, GuardVerdict } from "../types.js";
 import { allow, blockFatal, blockFatalWithValues } from "../types.js";
 
+/**
+ * Safety guard that trips when daily loss or consecutive losses exceed thresholds.
+ * Provides a cooling period before resetting, preventing rapid re-entry after losses.
+ *
+ * @example
+ * ```ts
+ * const guard = CircuitBreakerGuard.create(usd(100), 10); // $100 or 10% drawdown
+ * const verdict = guard.check(ctx);
+ * ```
+ */
 export class CircuitBreakerGuard implements EntryGuard {
 	readonly name = "CircuitBreaker";
 	readonly isSafetyCritical = true;
@@ -26,6 +36,11 @@ export class CircuitBreakerGuard implements EntryGuard {
 		this.trippedAtMs = null;
 	}
 
+	/**
+	 * Creates a guard with default cooldown (30 min) and consecutive loss threshold (5).
+	 * @param maxDailyLoss - Maximum allowed daily loss
+	 * @param maxDrawdownPct - Maximum drawdown percentage
+	 */
 	static create(maxDailyLoss: Decimal, maxDrawdownPct: number): CircuitBreakerGuard {
 		return new CircuitBreakerGuard({
 			maxDailyLoss,
@@ -35,6 +50,12 @@ export class CircuitBreakerGuard implements EntryGuard {
 		});
 	}
 
+	/**
+	 * Creates a guard with custom cooldown period.
+	 * @param maxDailyLoss - Maximum allowed daily loss
+	 * @param maxDrawdownPct - Maximum drawdown percentage
+	 * @param cooldownMs - Cooldown period in milliseconds
+	 */
 	static withCooldown(
 		maxDailyLoss: Decimal,
 		maxDrawdownPct: number,
@@ -48,10 +69,16 @@ export class CircuitBreakerGuard implements EntryGuard {
 		});
 	}
 
+	/**
+	 * @returns Whether the circuit breaker is currently tripped
+	 */
 	isTripped(): boolean {
 		return this.tripped;
 	}
 
+	/**
+	 * Manually resets the circuit breaker, clearing the tripped state.
+	 */
 	reset(): void {
 		this.tripped = false;
 		this.trippedAtMs = null;

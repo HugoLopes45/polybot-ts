@@ -1,3 +1,21 @@
+/**
+ * Risk management module providing pre-trade guard evaluation.
+ *
+ * Core exports:
+ * - {@link GuardPipeline} — composable guard execution pipeline
+ * - {@link GuardContext} — slim interface for guard checks
+ * - {@link GuardVerdict} — allow/block results with diagnostics
+ * - Verdict helpers: {@link allow}, {@link block}, {@link blockFatal}
+ *
+ * Guard implementations:
+ * - Position guards: MaxPositionsGuard, ExposureGuard, PerMarketLimitGuard
+ * - Price guards: MaxSpreadGuard, MinEdgeGuard, BookStalenessGuard
+ * - Rate guards: CooldownGuard, RateLimitGuard, DuplicateOrderGuard
+ * - Risk guards: ToxicityGuard, PortfolioRiskGuard, CircuitBreakerGuard
+ * - Safety guards: KillSwitchGuard, BalanceGuard, UsdcRejectionGuard
+ *
+ * @module
+ */
 export type { EntryGuard, GuardContext, GuardVerdict } from "./types.js";
 export {
 	allow,

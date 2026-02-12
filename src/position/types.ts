@@ -6,6 +6,7 @@ import type { Decimal } from "../shared/decimal.js";
 import type { ConditionId, MarketTokenId } from "../shared/identifiers.js";
 import type { MarketSide } from "../shared/market-side.js";
 
+/** Serializable snapshot of a position's state at a point in time. */
 export interface PositionSnapshot {
 	readonly conditionId: ConditionId;
 	readonly tokenId: MarketTokenId;
@@ -18,6 +19,7 @@ export interface PositionSnapshot {
 	readonly entryTimeMs: number;
 }
 
+/** Record of a position that has been fully closed, with realized P&L. */
 export interface ClosedPosition {
 	readonly snapshot: PositionSnapshot;
 	readonly exitPrice: Decimal;

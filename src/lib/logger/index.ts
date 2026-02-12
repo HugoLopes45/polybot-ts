@@ -9,14 +9,17 @@ import pino from "pino";
 
 // ── Types ───────────────────────────────────────────────────────────
 
+/** Log severity levels from least to most severe. */
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
+/** Configuration for creating a Logger instance. */
 export interface LoggerConfig {
 	readonly level: LogLevel;
 	readonly redactPaths?: readonly string[];
 	readonly destination?: { write(msg: string): void };
 }
 
+/** Structured logger interface with auto-redaction of opaque credentials. */
 export interface Logger {
 	info(msg: string): void;
 	info(obj: Record<string, unknown>, msg: string): void;
@@ -94,6 +97,7 @@ function wrapPino(pinoLogger: pino.Logger): Logger {
 	};
 }
 
+/** Create a Logger backed by pino with auto-redaction and optional custom destination. */
 export function createLogger(config: LoggerConfig): Logger {
 	const pinoOptions: pino.LoggerOptions = {
 		level: config.level,

@@ -14,6 +14,11 @@ export class ClobClient {
 		this.deps = deps;
 	}
 
+	/**
+	 * Submits an order to the CLOB.
+	 * @param req - The order request details
+	 * @returns Result containing the order response or a TradingError
+	 */
 	async submitOrder(req: ClobOrderRequest): Promise<Result<ClobOrderResponse, TradingError>> {
 		try {
 			const response = await this.deps.submitOrder(req);
@@ -23,6 +28,11 @@ export class ClobClient {
 		}
 	}
 
+	/**
+	 * Cancels an existing order by its ID.
+	 * @param orderId - The ID of the order to cancel
+	 * @returns Result containing void on success or a TradingError
+	 */
 	async cancelOrder(orderId: string): Promise<Result<void, TradingError>> {
 		try {
 			await this.deps.cancelOrder(orderId);
@@ -32,6 +42,10 @@ export class ClobClient {
 		}
 	}
 
+	/**
+	 * Retrieves all currently open orders.
+	 * @returns Result containing an array of order responses or a TradingError
+	 */
 	async getOpenOrders(): Promise<Result<ClobOrderResponse[], TradingError>> {
 		try {
 			const orders = await this.deps.getOpenOrders();

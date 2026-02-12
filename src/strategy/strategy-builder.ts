@@ -24,6 +24,7 @@ import type {
 	RiskAggregate,
 } from "./types.js";
 
+/** Optional dependency overrides for the StrategyBuilder. */
 export interface StrategyBuilderDeps {
 	clock?: Clock | undefined;
 	executor?: Executor | undefined;
@@ -34,6 +35,7 @@ export interface StrategyBuilderDeps {
 	detector?: SignalDetector | undefined;
 }
 
+/** Fluent, immutable builder for assembling a BuiltStrategy from its components. */
 export class StrategyBuilder {
 	private readonly clock: Clock;
 	private readonly executor: Executor | undefined;
