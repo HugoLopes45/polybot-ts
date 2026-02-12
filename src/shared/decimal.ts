@@ -1,22 +1,18 @@
 /**
  * Decimal — safe financial math wrapper.
  *
- * In Phase 0 we implement a lightweight immutable Decimal using native BigInt
- * arithmetic with fixed precision. In Phase 2 we swap internals to decimal.js-light
- * without changing the public API (Rule 14 wrapper pattern).
+ * Phase 2: internals swapped from BigInt to decimal.js-light via LibDecimal.
+ * Public API unchanged — all consumers are unaffected (Rule 14 wrapper pattern).
  *
  * All financial values (prices, sizes, balances, P&L) MUST use Decimal.
  * Never use raw `number` for money.
  */
-
-const PRECISION = 18;
-const SCALE = 10n ** BigInt(PRECISION);
+import { LibDecimal } from "../lib/decimal/index.js";
 
 export class Decimal {
-	/** Internal representation: value * 10^18 as BigInt */
-	private readonly raw: bigint;
+	private readonly raw: LibDecimal;
 
-	private constructor(raw: bigint) {
+	private constructor(raw: LibDecimal) {
 		this.raw = raw;
 	}
 
@@ -27,103 +23,82 @@ export class Decimal {
 			if (!Number.isFinite(value)) {
 				throw new Error(`Decimal.from: invalid number ${value}`);
 			}
-			return Decimal.fromString(value.toString());
 		}
-		return Decimal.fromString(value);
+		if (typeof value === "string" && value.trim().length === 0) {
+			throw new Error("Decimal.from: empty string");
+		}
+		return new Decimal(LibDecimal.from(value));
 	}
 
 	static zero(): Decimal {
-		return new Decimal(0n);
+		return new Decimal(LibDecimal.zero());
 	}
 
 	static one(): Decimal {
-		return new Decimal(SCALE);
-	}
-
-	private static fromString(s: string): Decimal {
-		const trimmed = s.trim();
-		if (trimmed.length === 0) {
-			throw new Error("Decimal.from: empty string");
-		}
-
-		const negative = trimmed.startsWith("-");
-		const abs = negative ? trimmed.slice(1) : trimmed;
-		const dotIdx = abs.indexOf(".");
-
-		let raw: bigint;
-		if (dotIdx === -1) {
-			raw = BigInt(abs) * SCALE;
-		} else {
-			const intPart = abs.slice(0, dotIdx) || "0";
-			const fracPart = abs.slice(dotIdx + 1);
-			const paddedFrac = fracPart.padEnd(PRECISION, "0").slice(0, PRECISION);
-			raw = BigInt(intPart) * SCALE + BigInt(paddedFrac);
-		}
-
-		return new Decimal(negative ? -raw : raw);
+		return new Decimal(LibDecimal.one());
 	}
 
 	// ── Arithmetic (immutable) ─────────────────────────────────────
 
 	add(other: Decimal): Decimal {
-		return new Decimal(this.raw + other.raw);
+		return new Decimal(this.raw.add(other.raw));
 	}
 
 	sub(other: Decimal): Decimal {
-		return new Decimal(this.raw - other.raw);
+		return new Decimal(this.raw.sub(other.raw));
 	}
 
 	mul(other: Decimal): Decimal {
-		return new Decimal((this.raw * other.raw) / SCALE);
+		return new Decimal(this.raw.mul(other.raw));
 	}
 
 	div(other: Decimal): Decimal {
-		if (other.raw === 0n) {
+		if (other.raw.isZero()) {
 			throw new Error("Decimal.div: division by zero");
 		}
-		return new Decimal((this.raw * SCALE) / other.raw);
+		return new Decimal(this.raw.div(other.raw));
 	}
 
 	neg(): Decimal {
-		return new Decimal(-this.raw);
+		return new Decimal(this.raw.neg());
 	}
 
 	abs(): Decimal {
-		return new Decimal(this.raw < 0n ? -this.raw : this.raw);
+		return new Decimal(this.raw.abs());
 	}
 
 	// ── Comparison ─────────────────────────────────────────────────
 
 	eq(other: Decimal): boolean {
-		return this.raw === other.raw;
+		return this.raw.eq(other.raw);
 	}
 
 	gt(other: Decimal): boolean {
-		return this.raw > other.raw;
+		return this.raw.gt(other.raw);
 	}
 
 	gte(other: Decimal): boolean {
-		return this.raw >= other.raw;
+		return this.raw.gte(other.raw);
 	}
 
 	lt(other: Decimal): boolean {
-		return this.raw < other.raw;
+		return this.raw.lt(other.raw);
 	}
 
 	lte(other: Decimal): boolean {
-		return this.raw <= other.raw;
+		return this.raw.lte(other.raw);
 	}
 
 	isZero(): boolean {
-		return this.raw === 0n;
+		return this.raw.isZero();
 	}
 
 	isPositive(): boolean {
-		return this.raw > 0n;
+		return this.raw.isPositive();
 	}
 
 	isNegative(): boolean {
-		return this.raw < 0n;
+		return this.raw.isNegative();
 	}
 
 	// ── Min / Max ──────────────────────────────────────────────────
@@ -139,30 +114,14 @@ export class Decimal {
 	// ── Conversion ─────────────────────────────────────────────────
 
 	toNumber(): number {
-		const intPart = this.raw / SCALE;
-		const fracPart = this.raw % SCALE;
-		const sign = this.raw < 0n ? -1 : 1;
-		const absFrac = fracPart < 0n ? -fracPart : fracPart;
-		return sign * (Number(intPart < 0n ? -intPart : intPart) + Number(absFrac) / Number(SCALE));
+		return this.raw.toNumber();
 	}
 
 	toString(): string {
-		const negative = this.raw < 0n;
-		const absRaw = negative ? -this.raw : this.raw;
-		const intPart = absRaw / SCALE;
-		const fracPart = absRaw % SCALE;
-		const fracStr = fracPart.toString().padStart(PRECISION, "0").replace(/0+$/, "");
-		const prefix = negative ? "-" : "";
-		return fracStr.length > 0 ? `${prefix}${intPart}.${fracStr}` : `${prefix}${intPart}`;
+		return this.raw.toString();
 	}
 
 	toFixed(places: number): string {
-		const negative = this.raw < 0n;
-		const absRaw = negative ? -this.raw : this.raw;
-		const intPart = absRaw / SCALE;
-		const fracPart = absRaw % SCALE;
-		const fracStr = fracPart.toString().padStart(PRECISION, "0").slice(0, places);
-		const prefix = negative ? "-" : "";
-		return places > 0 ? `${prefix}${intPart}.${fracStr}` : `${prefix}${intPart}`;
+		return this.raw.toFixed(places);
 	}
 }
