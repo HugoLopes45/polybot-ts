@@ -77,6 +77,7 @@ export interface PositionClosed {
 	readonly exitPrice: number;
 	readonly pnl: number;
 	readonly reason: string;
+	readonly fee?: number;
 }
 
 export interface PositionReduced {
