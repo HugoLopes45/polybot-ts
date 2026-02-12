@@ -151,6 +151,7 @@ export {
 	tryTransition,
 	OrderHandleBuilder,
 	OrderRegistry,
+	OrderService,
 } from "./order/index.js";
 
 // ── Context ─────────────────────────────────────────────────────────
@@ -162,6 +163,77 @@ export {
 	type StateView,
 	DetectorContext,
 } from "./context/index.js";
+
+// ── Auth ────────────────────────────────────────────────────────────
+export {
+	type ApiKeySet,
+	type Credentials,
+	createCredentials,
+	unwrapCredentials,
+	buildL2Headers,
+	deriveL2ApiKeys,
+} from "./auth/index.js";
+
+// ── Execution ───────────────────────────────────────────────────────
+export {
+	type Executor,
+	type RetryConfig,
+	DEFAULT_RETRY_CONFIG,
+	PaperExecutor,
+	type PaperExecutorConfig,
+	withRetry,
+	ClobExecutor,
+} from "./execution/index.js";
+
+// ── Lib: Ethereum ───────────────────────────────────────────────────
+export {
+	type EthAddress,
+	type EthSigner,
+	type SignTypedDataParams,
+	createSigner,
+} from "./lib/ethereum/index.js";
+
+// ── Lib: HTTP ───────────────────────────────────────────────────────
+export { TokenBucketRateLimiter } from "./lib/http/index.js";
+
+// ── Market ──────────────────────────────────────────────────────────
+export {
+	type MarketInfo,
+	type OrderbookDelta,
+	type OrderbookLevel,
+	type OrderbookSnapshot,
+	type ScanResult,
+	type MarketServiceDeps,
+	applyDelta,
+	bestAsk,
+	bestBid,
+	effectivePrice,
+	midPrice,
+	spread,
+	MarketService,
+	scan,
+} from "./market/index.js";
+
+// ── WebSocket ───────────────────────────────────────────────────────
+export {
+	type BookUpdate,
+	type Heartbeat,
+	type Subscription,
+	type UserFill,
+	type UserOrderStatus,
+	type WsMessage,
+	type ReconnectionConfig,
+	type WsClientLike,
+	type UserFeedConfig,
+	ReconnectionPolicy,
+	WsManager,
+	MarketFeed,
+	UserFeed,
+} from "./websocket/index.js";
+
+// ── Lib: WebSocket ──────────────────────────────────────────────────
+export { WsClient } from "./lib/websocket/index.js";
+export type { WsConfig, WsState } from "./lib/websocket/index.js";
 
 // ── Strategy ────────────────────────────────────────────────────────
 export type {
