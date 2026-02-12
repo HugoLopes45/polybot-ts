@@ -261,3 +261,19 @@ export type {
 	Journal,
 	JournalEntry,
 } from "./strategy/index.js";
+
+// ── Persistence ─────────────────────────────────────────────────────
+export { MemoryJournal, FileJournal } from "./persistence/index.js";
+export type { CorruptLine, FileJournalConfig, RestoreResult } from "./persistence/index.js";
+
+// ── CTF (Conditional Token Framework) ───────────────────────────────
+export {
+	CachingTokenResolver,
+	CtfClient,
+} from "./ctf/index.js";
+export type {
+	CtfConfig,
+	CtfOperation,
+	TokenInfo,
+	TokenResolverConfig,
+} from "./ctf/index.js";
