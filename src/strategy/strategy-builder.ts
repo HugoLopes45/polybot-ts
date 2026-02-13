@@ -109,8 +109,9 @@ export class StrategyBuilder {
 			watchdog: new ConnectivityWatchdog(DEFAULT_WATCHDOG_CONFIG, this.clock),
 		};
 
+		const eventDispatcher = this.createEventDispatcher();
 		const monitorAggregate: MonitorAggregate = {
-			eventDispatcher: new EventDispatcher(),
+			eventDispatcher,
 			orderRegistry: OrderRegistry.create(this.clock),
 		};
 
@@ -151,6 +152,7 @@ export class StrategyBuilder {
 			return err("Strategy requires a fee model");
 		}
 
+		const eventDispatcher = this.createEventDispatcher();
 		const deps: StrategyAggregates = {
 			position: { positionManager: PositionManager.create() },
 			risk: { guardPipeline: this.guards, exitPipeline: this.exits },
@@ -159,7 +161,7 @@ export class StrategyBuilder {
 				watchdog: new ConnectivityWatchdog(DEFAULT_WATCHDOG_CONFIG, this.clock),
 			},
 			monitor: {
-				eventDispatcher: new EventDispatcher(),
+				eventDispatcher,
 				orderRegistry: OrderRegistry.create(this.clock),
 			},
 			accounting: { feeModel: this.feeModel },
@@ -186,6 +188,10 @@ export class StrategyBuilder {
 		};
 	}
 
+	private createEventDispatcher(): EventDispatcher {
+		return createSafeDispatcher(this.clock);
+	}
+
 	private createDefaultExecutor(): Executor {
 		const error = new ConfigError("No executor configured");
 		return {
@@ -203,4 +209,32 @@ export class StrategyBuilder {
 			},
 		};
 	}
+}
+
+/**
+ * Creates an EventDispatcher wired with a default error callback that
+ * emits `error_occurred` SDK events when handlers throw, with a
+ * recursion guard to prevent infinite loops from wildcard handlers.
+ *
+ * @internal Exported for testing only.
+ */
+export function createSafeDispatcher(clock: Clock): EventDispatcher {
+	let emitting = false;
+	const dispatcher = new EventDispatcher((error) => {
+		if (emitting) return;
+		emitting = true;
+		try {
+			const detail = error instanceof Error ? error.message : String(error);
+			dispatcher.emitSdk({
+				type: "error_occurred",
+				timestamp: clock.now(),
+				code: "HANDLER_THREW",
+				message: `Event handler threw during dispatch: ${detail}`,
+				category: "non_retryable",
+			});
+		} finally {
+			emitting = false;
+		}
+	});
+	return dispatcher;
 }

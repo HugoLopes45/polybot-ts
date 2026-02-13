@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fixedNotionalFee } from "../accounting/fee-model.js";
 import { EventDispatcher } from "../events/event-dispatcher.js";
+import type { SdkEvent } from "../events/sdk-events.js";
 import type { Executor } from "../execution/types.js";
 import { GuardPipeline } from "../risk/guard-pipeline.js";
 import type { EntryGuard, GuardVerdict } from "../risk/types.js";
@@ -10,11 +11,12 @@ import type { ConditionId } from "../shared/identifiers.js";
 import type { MarketSide as MarketSideType } from "../shared/market-side.js";
 import { MarketSide } from "../shared/market-side.js";
 import { ok } from "../shared/result.js";
+import { FakeClock } from "../shared/time.js";
 import { ExitPipeline } from "../signal/exit-pipeline.js";
 import type { ExitPolicy, SignalDetector } from "../signal/types.js";
 import type { TickContext } from "./built-strategy.js";
 import type { Journal } from "./journal.js";
-import { StrategyBuilder } from "./strategy-builder.js";
+import { StrategyBuilder, createSafeDispatcher } from "./strategy-builder.js";
 
 function mockDetector(): SignalDetector<unknown, unknown> {
 	return {
@@ -241,6 +243,92 @@ describe("StrategyBuilder", () => {
 			// Tick should not throw, but default executor should produce an error event
 			// We can't capture it without the dispatcher, but at minimum it shouldn't crash
 			await expect(strategy.tick(createTickContext())).resolves.not.toThrow();
+		});
+	});
+
+	describe("createSafeDispatcher", () => {
+		it("emits error_occurred when a handler throws", () => {
+			const clock = new FakeClock(1000);
+			const dispatcher = createSafeDispatcher(clock);
+
+			const captured: SdkEvent[] = [];
+			dispatcher.onSdk("error_occurred", (event) => {
+				captured.push(event);
+			});
+			dispatcher.onSdk("order_placed", () => {
+				throw new Error("boom");
+			});
+
+			dispatcher.emitSdk({
+				type: "order_placed",
+				timestamp: 1000,
+				conditionId: "c",
+				tokenId: "t",
+				side: "Yes",
+				direction: "buy",
+				price: 0.5,
+				size: 10,
+			});
+
+			expect(captured).toHaveLength(1);
+			const evt = captured[0] as { code: string; message: string };
+			expect(evt.code).toBe("HANDLER_THREW");
+			expect(evt.message).toContain("boom");
+		});
+
+		it("prevents infinite recursion from wildcard error_occurred handler", () => {
+			const clock = new FakeClock(1000);
+			const dispatcher = createSafeDispatcher(clock);
+
+			let callCount = 0;
+			dispatcher.onSdk("*", () => {
+				callCount++;
+				throw new Error("wildcard throws");
+			});
+
+			// Should not recurse infinitely — the recursion guard stops it
+			dispatcher.emitSdk({
+				type: "order_placed",
+				timestamp: 1000,
+				conditionId: "c",
+				tokenId: "t",
+				side: "Yes",
+				direction: "buy",
+				price: 0.5,
+				size: 10,
+			});
+
+			// Wildcard called for order_placed, then error_occurred is emitted
+			// but the recursion guard prevents re-entering the callback
+			expect(callCount).toBeGreaterThanOrEqual(1);
+			expect(callCount).toBeLessThanOrEqual(3);
+		});
+
+		it("uses clock timestamp on error events", () => {
+			const clock = new FakeClock(42000);
+			const dispatcher = createSafeDispatcher(clock);
+
+			const captured: SdkEvent[] = [];
+			dispatcher.onSdk("error_occurred", (event) => {
+				captured.push(event);
+			});
+			dispatcher.onSdk("order_placed", () => {
+				throw new Error("oops");
+			});
+
+			dispatcher.emitSdk({
+				type: "order_placed",
+				timestamp: 1000,
+				conditionId: "c",
+				tokenId: "t",
+				side: "Yes",
+				direction: "buy",
+				price: 0.5,
+				size: 10,
+			});
+
+			expect(captured).toHaveLength(1);
+			expect((captured[0] as { timestamp: number }).timestamp).toBe(42000);
 		});
 	});
 });
