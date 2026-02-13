@@ -132,8 +132,8 @@ export class WsManager {
 			if (this.maxBufferSize > 0 && this.buffer.length > this.maxBufferSize) {
 				this.buffer.shift();
 			}
+			this.lastMessageAtMs = this.clock.now();
 		}
-		this.lastMessageAtMs = this.clock.now();
 	}
 
 	private collectReplayErrors(): TradingError[] {

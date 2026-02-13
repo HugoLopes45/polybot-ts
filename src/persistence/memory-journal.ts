@@ -26,8 +26,9 @@ export class MemoryJournal implements Journal {
 	 */
 	async record(event: JournalEntry): Promise<void> {
 		this.store.push(event);
-		while (this.store.length > this.maxEntries) {
-			this.store.shift();
+		const excess = this.store.length - this.maxEntries;
+		if (excess > 0) {
+			this.store.splice(0, excess);
 		}
 	}
 

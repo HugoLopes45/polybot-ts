@@ -400,6 +400,27 @@ describe("WsManager", () => {
 			expect(manager.checkHeartbeat()).toBe("stale");
 		});
 
+		it("unparseable message does not reset heartbeat timer", async () => {
+			const client = new StubWsClient();
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { heartbeatTimeoutMs: 60_000, clock });
+			await manager.connect();
+
+			// Receive a valid message to seed lastMessageAtMs
+			client.simulateMessage(bookUpdateJson());
+
+			// Advance past timeout
+			clock.advance(61_000);
+
+			// Send unparseable garbage — should NOT reset timer
+			client.simulateMessage("not-valid-json!!!");
+			expect(manager.checkHeartbeat()).toBe("stale");
+
+			// Send another unparseable (valid JSON but unknown type)
+			client.simulateMessage(JSON.stringify({ type: "unknown_type" }));
+			expect(manager.checkHeartbeat()).toBe("stale");
+		});
+
 		it("no timeout configured = always healthy", async () => {
 			const client = new StubWsClient();
 			const clock = new FakeClock(1000);

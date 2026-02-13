@@ -112,7 +112,7 @@ export class PositionReconciler {
 		const diff = a.sub(b).abs();
 		const max = Decimal.max(a.abs(), b.abs());
 		if (max.isZero()) return true;
-		const diffBps = diff.div(max).toNumber() * 10_000;
-		return diffBps <= this.config.toleranceBps;
+		const toleranceBps = Decimal.from(this.config.toleranceBps);
+		return diff.mul(Decimal.from(10_000)).lte(max.mul(toleranceBps));
 	}
 }
