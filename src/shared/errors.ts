@@ -82,6 +82,14 @@ export class OrderRejectedError extends TradingError {
 	}
 }
 
+/** Non-retryable error when an order cannot be found in the local tracker. */
+export class OrderNotFoundError extends TradingError {
+	constructor(message: string, context: Record<string, unknown> = {}) {
+		super(message, "ORDER_NOT_FOUND", ErrorCategory.NonRetryable, context);
+		this.name = "OrderNotFoundError";
+	}
+}
+
 /** Non-retryable error when USDC balance is too low for the requested operation. */
 export class InsufficientBalanceError extends TradingError {
 	constructor(message: string, context: Record<string, unknown> = {}) {

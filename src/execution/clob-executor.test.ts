@@ -4,6 +4,7 @@ import type { ClobOrderResponse, ClobProviders } from "../lib/clob/types.js";
 import { TokenBucketRateLimiter } from "../lib/http/rate-limiter.js";
 import { PendingState } from "../order/types.js";
 import { Decimal } from "../shared/decimal.js";
+import { OrderNotFoundError } from "../shared/errors.js";
 import { conditionId, marketTokenId } from "../shared/identifiers.js";
 import { MarketSide } from "../shared/market-side.js";
 import { isErr, isOk } from "../shared/result.js";
@@ -156,6 +157,40 @@ describe("ClobExecutor", () => {
 			if (submitResult.ok) {
 				const result = await executor.cancel(submitResult.value.clientOrderId);
 				expect(isErr(result)).toBe(true);
+			}
+		});
+
+		it("returns OrderNotFoundError for unknown orderId instead of sending garbage (BUG-3)", async () => {
+			const { executor } = makeExecutor();
+			const result = await executor.cancel(
+				// biome-ignore lint/suspicious/noExplicitAny: test cast
+				"never-submitted" as any,
+			);
+			expect(isErr(result)).toBe(true);
+			if (!result.ok) {
+				expect(result.error).toBeInstanceOf(OrderNotFoundError);
+				expect(result.error.code).toBe("ORDER_NOT_FOUND");
+				expect(result.error.message).toContain("never-submitted");
+			}
+		});
+	});
+
+	describe("avgPrice edge cases (HARD-18)", () => {
+		it("handles empty avgPrice string in response", async () => {
+			const emptyAvg: ClobOrderResponse = {
+				orderId: "exch-300",
+				status: "MATCHED",
+				filledSize: "10",
+				avgPrice: "",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(emptyAvg),
+			});
+			const result = await executor.submit(testIntent());
+			expect(isOk(result)).toBe(true);
+			if (result.ok) {
+				// Empty string is falsy, so avgFillPrice should be null
+				expect(result.value.avgFillPrice).toBeNull();
 			}
 		});
 	});

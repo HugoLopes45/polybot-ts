@@ -28,6 +28,9 @@ export class FakeClock implements Clock {
 	}
 
 	advance(ms: number): void {
+		if (ms < 0) {
+			throw new Error(`FakeClock.advance() requires non-negative ms, got ${ms}`);
+		}
 		this.time += ms;
 	}
 

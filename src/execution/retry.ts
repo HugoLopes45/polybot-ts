@@ -23,7 +23,8 @@ function resolveConfig(overrides?: Partial<RetryConfig>): RetryConfig {
 	};
 }
 
-function computeDelay(attempt: number, config: RetryConfig, error: TradingError): number {
+/** @internal Exported for testing only. */
+export function computeDelay(attempt: number, config: RetryConfig, error: TradingError): number {
 	const exponential = config.baseDelayMs * 2 ** attempt;
 	let delay = Math.min(exponential, config.maxDelayMs);
 
@@ -31,7 +32,7 @@ function computeDelay(attempt: number, config: RetryConfig, error: TradingError)
 		delay = Math.max(delay, error.retryAfterMs);
 	}
 
-	const jitter = 1 + Math.random() * config.jitterFactor;
+	const jitter = 1 + (Math.random() - 0.5) * 2 * config.jitterFactor;
 	return delay * jitter;
 }
 

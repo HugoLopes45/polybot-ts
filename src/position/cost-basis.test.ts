@@ -73,6 +73,29 @@ describe("CostBasis", () => {
 		});
 	});
 
+	describe("negative price/size handling (HARD-13)", () => {
+		it("computes negative total cost for negative price (no validation)", () => {
+			// Documents current behavior: CostBasis doesn't validate inputs
+			const cb = CostBasis.create().addFill({
+				price: Decimal.from("-1"),
+				size: Decimal.from("5"),
+				timestampMs: 1000,
+			});
+			// Documents that cost = -1 * 5 = -5
+			expect(cb.totalCost().isNegative()).toBe(true);
+			expect(cb.totalSize().eq(Decimal.from("5"))).toBe(true);
+		});
+
+		it("accumulates correctly with mixed-sign prices", () => {
+			const cb = CostBasis.create()
+				.addFill({ price: Decimal.from("10"), size: Decimal.from("5"), timestampMs: 1000 })
+				.addFill({ price: Decimal.from("-2"), size: Decimal.from("3"), timestampMs: 2000 });
+			// total cost = 10*5 + (-2)*3 = 50 - 6 = 44
+			expect(cb.totalCost().eq(Decimal.from("44"))).toBe(true);
+			expect(cb.totalSize().eq(Decimal.from("8"))).toBe(true);
+		});
+	});
+
 	describe("allFills", () => {
 		it("returns empty array for new instance", () => {
 			expect(CostBasis.create().allFills().length).toBe(0);

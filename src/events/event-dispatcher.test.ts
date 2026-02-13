@@ -151,6 +151,89 @@ describe("EventDispatcher", () => {
 		});
 	});
 
+	describe("handler resilience", () => {
+		it("continues dispatching when a handler throws (BUG-4)", () => {
+			const dispatcher = new EventDispatcher();
+			const secondHandler = vi.fn();
+
+			dispatcher.onSdk("order_placed", () => {
+				throw new Error("handler exploded");
+			});
+			dispatcher.onSdk("order_placed", secondHandler);
+
+			dispatcher.emitSdk(sampleOrderPlaced);
+			expect(secondHandler).toHaveBeenCalledTimes(1);
+			expect(secondHandler).toHaveBeenCalledWith(sampleOrderPlaced);
+		});
+
+		it("handler that unsubscribes itself during dispatch does not corrupt iteration (HARD-1)", () => {
+			const dispatcher = new EventDispatcher();
+			const calls: string[] = [];
+
+			const unsub = dispatcher.onSdk("order_placed", () => {
+				calls.push("self-unsub");
+				unsub();
+			});
+			dispatcher.onSdk("order_placed", () => calls.push("second"));
+
+			dispatcher.emitSdk(sampleOrderPlaced);
+			expect(calls).toEqual(["self-unsub", "second"]);
+		});
+
+		it("same handler registered twice is called twice (HARD-2)", () => {
+			const dispatcher = new EventDispatcher();
+			const handler = vi.fn();
+
+			dispatcher.onSdk("order_placed", handler);
+			dispatcher.onSdk("order_placed", handler);
+			dispatcher.emitSdk(sampleOrderPlaced);
+
+			expect(handler).toHaveBeenCalledTimes(2);
+		});
+
+		it("domain handler throw does not kill remaining handlers", () => {
+			const dispatcher = new EventDispatcher();
+			const secondHandler = vi.fn();
+
+			dispatcher.onDomain("risk_limit_breached", () => {
+				throw new Error("boom");
+			});
+			dispatcher.onDomain("risk_limit_breached", secondHandler);
+
+			dispatcher.emitDomain(sampleRiskBreach);
+			expect(secondHandler).toHaveBeenCalledTimes(1);
+		});
+
+		it("onHandlerError callback receives thrown error", () => {
+			const errorCallback = vi.fn();
+			const dispatcher = new EventDispatcher(errorCallback);
+			const thrownError = new Error("handler exploded");
+
+			dispatcher.onSdk("order_placed", () => {
+				throw thrownError;
+			});
+			dispatcher.emitSdk(sampleOrderPlaced);
+
+			expect(errorCallback).toHaveBeenCalledTimes(1);
+			expect(errorCallback).toHaveBeenCalledWith(thrownError);
+		});
+
+		it("throwing error callback does not kill remaining handlers", () => {
+			const dispatcher = new EventDispatcher(() => {
+				throw new Error("callback itself exploded");
+			});
+			const secondHandler = vi.fn();
+
+			dispatcher.onSdk("order_placed", () => {
+				throw new Error("handler throws");
+			});
+			dispatcher.onSdk("order_placed", secondHandler);
+
+			dispatcher.emitSdk(sampleOrderPlaced);
+			expect(secondHandler).toHaveBeenCalledTimes(1);
+		});
+	});
+
 	describe("isolation", () => {
 		it("SDK and domain events are independent", () => {
 			const dispatcher = new EventDispatcher();

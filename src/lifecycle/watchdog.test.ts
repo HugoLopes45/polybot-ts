@@ -81,6 +81,22 @@ describe("ConnectivityWatchdog", () => {
 		});
 	});
 
+	describe("clock backward (HARD-3)", () => {
+		it("silenceMs handles clock going backward gracefully", () => {
+			const { wd, clock } = createWatchdog();
+			clock.advance(Duration.seconds(10));
+			wd.touch();
+			// Set clock backward (before last touch)
+			clock.set(500);
+			// silenceMs = now - lastTouchMs = 500 - 11000 = negative
+			// This should still work without crashing; result may be negative
+			const silence = wd.silenceMs();
+			expect(typeof silence).toBe("number");
+			// Status should be healthy since elapsed is negative (< warning)
+			expect(wd.status()).toBe(WatchdogStatus.Healthy);
+		});
+	});
+
 	describe("custom thresholds", () => {
 		it("respects custom warning/critical values", () => {
 			const { wd, clock } = createWatchdog(Duration.seconds(5), Duration.seconds(10));

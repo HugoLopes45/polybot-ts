@@ -24,10 +24,11 @@ export type ExchangeOrderId = Brand<string, "ExchangeOrderId">;
 // ── Factory functions with validation ────────────────────────────────
 
 function createBrandedId<B extends string>(value: string, label: B): Brand<string, B> {
-	if (value.length === 0) {
+	const trimmed = value.trim();
+	if (trimmed.length === 0) {
 		throw new Error(`${label} cannot be empty`);
 	}
-	return value as Brand<string, B>;
+	return trimmed as Brand<string, B>;
 }
 
 /** Create a validated ConditionId from a raw string. Throws if empty. */

@@ -17,10 +17,11 @@ import type { TokenBucketRateLimiter } from "../lib/http/rate-limiter.js";
 import { PendingState } from "../order/types.js";
 import type { OrderResult } from "../order/types.js";
 import { Decimal } from "../shared/decimal.js";
+import { OrderNotFoundError } from "../shared/errors.js";
 import type { TradingError } from "../shared/errors.js";
 import { clientOrderId, exchangeOrderId } from "../shared/identifiers.js";
 import type { ClientOrderId } from "../shared/identifiers.js";
-import { type Result, ok } from "../shared/result.js";
+import { type Result, err, ok } from "../shared/result.js";
 import type { SdkOrderIntent } from "../signal/types.js";
 import type { Executor } from "./types.js";
 
@@ -65,11 +66,16 @@ export class ClobExecutor implements Executor {
 	}
 
 	async cancel(orderId: ClientOrderId): Promise<Result<void, TradingError>> {
-		const exchangeId = this.activeOrders.get(orderId as string);
+		const rawId = orderId as string;
+		const exchangeId = this.activeOrders.get(rawId);
 		if (exchangeId) {
 			return this.clobClient.cancelOrder(exchangeId);
 		}
-		return this.clobClient.cancelOrder(orderId as string);
+		return err(
+			new OrderNotFoundError(`Cannot cancel unknown order "${rawId}": not found in active orders`, {
+				orderId: rawId,
+			}),
+		);
 	}
 
 	private mapStatus(status: string, filledSize: Decimal, totalSize: Decimal): PendingState {

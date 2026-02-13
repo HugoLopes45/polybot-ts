@@ -116,6 +116,35 @@ describe("Decimal", () => {
 		});
 	});
 
+	describe("toFixed rounding behavior (HARD-11)", () => {
+		it("uses ROUND_HALF_UP at midpoint", () => {
+			// decimal.js-light default rounding mode 4 = ROUND_HALF_UP
+			expect(Decimal.from("1.235").toFixed(2)).toBe("1.24");
+			expect(Decimal.from("1.245").toFixed(2)).toBe("1.25");
+			expect(Decimal.from("1.225").toFixed(2)).toBe("1.23");
+		});
+
+		it("truncates correctly for financial values", () => {
+			expect(Decimal.from("0.999").toFixed(2)).toBe("1.00");
+			expect(Decimal.from("0.001").toFixed(2)).toBe("0.00");
+		});
+	});
+
+	describe("division precision (HARD-12)", () => {
+		it("1/3 produces consistent output", () => {
+			const result = Decimal.from("1").div(Decimal.from("3"));
+			const str = result.toString();
+			// Should be 0.33333... with a consistent length
+			expect(str.startsWith("0.3333")).toBe(true);
+		});
+
+		it("1/7 produces a repeating decimal", () => {
+			const result = Decimal.from("1").div(Decimal.from("7"));
+			const fixed = result.toFixed(6);
+			expect(fixed).toBe("0.142857");
+		});
+	});
+
 	describe("financial precision (IEEE 754 edge cases)", () => {
 		it("0.1 + 0.2 === 0.3 (unlike native floats)", () => {
 			const result = Decimal.from("0.1").add(Decimal.from("0.2"));

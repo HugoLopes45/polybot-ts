@@ -27,6 +27,18 @@ describe("branded identifiers", () => {
 			expect(() => clientOrderId("")).toThrow("ClientOrderId cannot be empty");
 			expect(() => exchangeOrderId("")).toThrow("ExchangeOrderId cannot be empty");
 		});
+
+		it("throws on whitespace-only strings (BUG-6)", () => {
+			expect(() => conditionId("   ")).toThrow("ConditionId cannot be empty");
+			expect(() => conditionId("\t")).toThrow("ConditionId cannot be empty");
+			expect(() => conditionId("\n")).toThrow("ConditionId cannot be empty");
+			expect(() => marketTokenId("  ")).toThrow("MarketTokenId cannot be empty");
+		});
+
+		it("trims leading/trailing whitespace from IDs", () => {
+			expect(idToString(conditionId(" abc "))).toBe("abc");
+			expect(idToString(marketTokenId("\ttok\n"))).toBe("tok");
+		});
 	});
 
 	describe("type safety", () => {
@@ -43,6 +55,16 @@ describe("branded identifiers", () => {
 			const id = conditionId("my-condition");
 			expect(idToString(id)).toBe("my-condition");
 			expect(typeof idToString(id)).toBe("string");
+		});
+
+		it("round-trip: idToString(factory(x)) === x (HARD-21)", () => {
+			const values = ["abc", "0x123", "with-dashes", "with_underscores", "123"];
+			for (const v of values) {
+				expect(idToString(conditionId(v))).toBe(v);
+				expect(idToString(marketTokenId(v))).toBe(v);
+				expect(idToString(clientOrderId(v))).toBe(v);
+				expect(idToString(exchangeOrderId(v))).toBe(v);
+			}
 		});
 	});
 });

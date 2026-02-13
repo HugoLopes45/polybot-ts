@@ -68,6 +68,20 @@ describe("TokenBucketRateLimiter", () => {
 		expect(limiter.availableTokens()).toBe(4);
 	});
 
+	it("capacity=0 never allows acquisition (HARD-15)", () => {
+		const { limiter } = createLimiter(0);
+		expect(limiter.tryAcquire()).toBe(false);
+		expect(limiter.availableTokens()).toBe(0);
+	});
+
+	it("refillRate=0 never refills (HARD-15)", () => {
+		const { limiter, clock } = createLimiter(2, 0);
+		limiter.tryAcquire();
+		limiter.tryAcquire();
+		clock.advance(10_000);
+		expect(limiter.availableTokens()).toBe(0);
+	});
+
 	it("waitForToken resolves when token becomes available", async () => {
 		const { limiter, clock } = createLimiter(2, 1);
 		// Exhaust all tokens

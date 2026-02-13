@@ -61,6 +61,30 @@ describe("credentials", () => {
 		});
 	});
 
+	describe("symbol enumeration (HARD-14)", () => {
+		it("getOwnPropertySymbols does not leak raw credential data", () => {
+			const creds = createCredentials(TEST_KEYS);
+			const symbols = Object.getOwnPropertySymbols(creds as unknown as object);
+			// Collect all string values reachable via symbols
+			const stringValues: string[] = [];
+			for (const sym of symbols) {
+				const val = (creds as unknown as Record<symbol, unknown>)[sym];
+				if (typeof val === "string") {
+					stringValues.push(val);
+				}
+			}
+			// No string-typed symbol value should contain secret material
+			for (const sv of stringValues) {
+				expect(sv).not.toContain("super-secret");
+				expect(sv).not.toContain("my-passphrase");
+			}
+			// The inspect symbol should be present and return a function
+			const inspectSym = Symbol.for("nodejs.util.inspect.custom");
+			const inspectVal = (creds as unknown as Record<symbol, unknown>)[inspectSym];
+			expect(typeof inspectVal).toBe("function");
+		});
+	});
+
 	describe("invalid credentials", () => {
 		it("unwrapCredentials throws AuthError for non-credential object", () => {
 			const fake = {} as ReturnType<typeof createCredentials>;

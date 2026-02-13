@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PendingState } from "../order/types.js";
 import type { OrderResult } from "../order/types.js";
 import { Decimal } from "../shared/decimal.js";
@@ -15,7 +15,7 @@ import type { Result } from "../shared/result.js";
 import { err, isErr, isOk, ok } from "../shared/result.js";
 import { OrderDirection } from "../signal/types.js";
 import type { SdkOrderIntent } from "../signal/types.js";
-import { withRetry } from "./retry.js";
+import { computeDelay, withRetry } from "./retry.js";
 import type { Executor } from "./types.js";
 
 function fakeOrderResult(index: number): OrderResult {
@@ -183,6 +183,81 @@ describe("withRetry", () => {
 			expect(isOk(result)).toBe(true);
 			if (!result.ok) return;
 			expect(result.value.clientOrderId as unknown as string).toBe("c-42");
+		});
+	});
+
+	describe("jitter bidirectional (BUG-5)", () => {
+		afterEach(() => {
+			vi.restoreAllMocks();
+		});
+
+		it("jitter multiplier < 1 when Math.random returns 0", () => {
+			// formula: 1 + (rand - 0.5) * 2 * jitterFactor
+			// rand=0, jitterFactor=0.5 → 1 + (0 - 0.5)*2*0.5 = 0.5
+			// delay = baseDelayMs * 2^attempt * 0.5 = 100 * 1 * 0.5 = 50
+			vi.spyOn(Math, "random").mockReturnValue(0);
+			const config = { maxAttempts: 3, baseDelayMs: 100, maxDelayMs: 10000, jitterFactor: 0.5 };
+			const delay = computeDelay(0, config, new NetworkError("test"));
+			expect(delay).toBe(50); // below base of 100
+		});
+
+		it("jitter multiplier > 1 when Math.random returns 1", () => {
+			// rand=1, jitterFactor=0.5 → 1 + (1 - 0.5)*2*0.5 = 1.5
+			// delay = 100 * 1 * 1.5 = 150
+			vi.spyOn(Math, "random").mockReturnValue(1);
+			const config = { maxAttempts: 3, baseDelayMs: 100, maxDelayMs: 10000, jitterFactor: 0.5 };
+			const delay = computeDelay(0, config, new NetworkError("test"));
+			expect(delay).toBe(150); // above base of 100
+		});
+
+		it("jitter is symmetric around the base delay", () => {
+			const config = { maxAttempts: 3, baseDelayMs: 100, maxDelayMs: 10000, jitterFactor: 0.5 };
+			vi.spyOn(Math, "random").mockReturnValue(0);
+			const low = computeDelay(0, config, new NetworkError("test"));
+			vi.spyOn(Math, "random").mockReturnValue(1);
+			const high = computeDelay(0, config, new NetworkError("test"));
+			// low and high should be equidistant from base
+			expect(100 - low).toBe(high - 100); // 50 = 50
+		});
+	});
+
+	describe("maxAttempts=0 (HARD-19)", () => {
+		it("makes exactly one attempt with no retries when maxAttempts=0", async () => {
+			const inner = mockExecutor([ok(fakeOrderResult(1))]);
+			const executor = withRetry(inner, {
+				maxAttempts: 0,
+				baseDelayMs: 0,
+			});
+			await executor.submit(testIntent());
+			// First call is always made; maxAttempts=0 means the retry loop never iterates
+			expect(inner.callCount).toBe(1);
+		});
+	});
+
+	describe("maxAttempts semantics (HARD-20)", () => {
+		it("maxAttempts=1 means exactly one attempt (no retry)", async () => {
+			const inner = mockExecutor([err(new NetworkError("only try"))]);
+			const executor = withRetry(inner, {
+				maxAttempts: 1,
+				baseDelayMs: 0,
+			});
+			await executor.submit(testIntent());
+			expect(inner.callCount).toBe(1);
+		});
+
+		it("maxAttempts=3 makes up to 3 calls total", async () => {
+			const inner = mockExecutor([
+				err(new NetworkError("1")),
+				err(new NetworkError("2")),
+				err(new NetworkError("3")),
+				err(new NetworkError("4")),
+			]);
+			const executor = withRetry(inner, {
+				maxAttempts: 3,
+				baseDelayMs: 0,
+			});
+			await executor.submit(testIntent());
+			expect(inner.callCount).toBe(3);
 		});
 	});
 

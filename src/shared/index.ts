@@ -33,6 +33,7 @@ export {
 	RateLimitError,
 	AuthError,
 	OrderRejectedError,
+	OrderNotFoundError,
 	InsufficientBalanceError,
 	ConfigError,
 	SystemError,

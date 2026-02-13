@@ -43,6 +43,24 @@ describe("FeeModel", () => {
 		});
 	});
 
+	describe("fixedNotionalFee edge cases", () => {
+		it("uses absolute notional to prevent negative fees (BUG-2)", () => {
+			const model = fixedNotionalFee(10);
+			const fee = computeFee(model, d("-1000"), d("50"));
+			expect(fee.isNegative()).toBe(false);
+			expect(fee.eq(d("1"))).toBe(true);
+		});
+	});
+
+	describe("profitBasedFee rounding (HARD-8)", () => {
+		it("handles very small pnl values", () => {
+			const model = profitBasedFee(33);
+			const fee = computeFee(model, d("100"), d("0.01"));
+			expect(fee.isPositive()).toBe(true);
+			expect(fee.isNegative()).toBe(false);
+		});
+	});
+
 	describe("fee result is always non-negative", () => {
 		it.each([
 			["noFees", noFees()],

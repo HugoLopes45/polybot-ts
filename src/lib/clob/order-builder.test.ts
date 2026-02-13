@@ -50,4 +50,26 @@ describe("buildClobOrder", () => {
 		const req = buildClobOrder(BASE_INTENT);
 		expect(req.orderType).toBe("GTC");
 	});
+
+	it("handles zero price and size (HARD-17)", () => {
+		const intent: SdkOrderIntent = {
+			...BASE_INTENT,
+			price: Decimal.from("0"),
+			size: Decimal.from("0"),
+		};
+		const req = buildClobOrder(intent);
+		expect(req.price).toBe("0");
+		expect(req.size).toBe("0");
+	});
+
+	it("handles very small decimal values (HARD-17)", () => {
+		const intent: SdkOrderIntent = {
+			...BASE_INTENT,
+			price: Decimal.from("0.0001"),
+			size: Decimal.from("0.001"),
+		};
+		const req = buildClobOrder(intent);
+		expect(req.price).toBe("0.0001");
+		expect(req.size).toBe("0.001");
+	});
 });

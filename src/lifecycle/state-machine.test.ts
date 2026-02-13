@@ -167,6 +167,17 @@ describe("StrategyStateMachine", () => {
 				expect(r.error.kind).toBe(StateErrorKind.AlreadyTerminal);
 			}
 		});
+
+		it("halt from Shutdown is rejected (HARD-5)", () => {
+			const { sm } = createMachine();
+			sm.transition({ type: "shutdown" });
+
+			const r = sm.transition({ type: "halt", reason: HaltReason.ManualHalt });
+			expect(r.ok).toBe(false);
+			if (!r.ok) {
+				expect(r.error.kind).toBe(StateErrorKind.AlreadyTerminal);
+			}
+		});
 	});
 
 	describe("invalid transitions", () => {
@@ -243,6 +254,31 @@ describe("StrategyStateMachine", () => {
 			}
 
 			expect(sm.history().length).toBeLessThanOrEqual(100);
+		});
+
+		it("FIFO: oldest transitions are dropped first (HARD-22)", () => {
+			const { sm, clock } = createMachine();
+			clock.set(1);
+			sm.transition({ type: "initialize" });
+			clock.set(2);
+			sm.transition({ type: "warmup_complete" });
+
+			// Generate 120+ transitions to overflow the 100-entry buffer
+			for (let i = 0; i < 60; i++) {
+				clock.set(100 + i * 2);
+				sm.transition({ type: "pause", reason: PauseReason.UserRequested });
+				clock.set(101 + i * 2);
+				sm.transition({ type: "resume" });
+			}
+
+			const history = sm.history();
+			expect(history.length).toBeLessThanOrEqual(100);
+			// The earliest transitions (initialize, warmup_complete) should have been dropped
+			const firstEntry = history[0];
+			expect(firstEntry?.transition).not.toBe("initialize");
+			// The last entry should be the most recent
+			const lastEntry = history[history.length - 1];
+			expect(lastEntry?.to).toBe(StrategyState.Active);
 		});
 	});
 

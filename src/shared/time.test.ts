@@ -36,6 +36,18 @@ describe("Clock", () => {
 			clock.set(9999);
 			expect(clock.now()).toBe(9999);
 		});
+
+		it("advance(0) is a no-op (HARD-4)", () => {
+			const clock = new FakeClock(100);
+			clock.advance(0);
+			expect(clock.now()).toBe(100);
+		});
+
+		it("advance with negative value throws with value in message (HARD-4)", () => {
+			const clock = new FakeClock(100);
+			expect(() => clock.advance(-1)).toThrow("non-negative ms, got -1");
+			expect(() => clock.advance(-42)).toThrow("got -42");
+		});
 	});
 });
 

@@ -95,4 +95,28 @@ describe("OrderRegistry", () => {
 		clock.now = () => 7000;
 		expect(registry.cleanup(5000)).toBe(1);
 	});
+
+	it("cleanup at TTL boundary: exactly-expired vs not-yet-expired (HARD-6)", () => {
+		let currentMs = 1000;
+		const clock = { now: () => currentMs };
+		const registry = OrderRegistry.create(clock);
+
+		// Track two orders and fill them
+		registry.track(makePendingOrder("ord-early"));
+		registry.updateState(clientOrderId("ord-early"), PendingState.Filled);
+		// Filled at t=1000
+
+		currentMs = 2000;
+		registry.track(makePendingOrder("ord-late"));
+		registry.updateState(clientOrderId("ord-late"), PendingState.Filled);
+		// Filled at t=2000
+
+		// At t=6000 with TTL=5000: early (age=5000) should be cleaned,
+		// late (age=4000) should not
+		currentMs = 6000;
+		const cleaned = registry.cleanup(5000);
+		expect(cleaned).toBe(1);
+		expect(registry.get(clientOrderId("ord-early"))).toBeNull();
+		expect(registry.get(clientOrderId("ord-late"))).not.toBeNull();
+	});
 });

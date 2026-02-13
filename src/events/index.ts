@@ -27,3 +27,4 @@ export type {
 } from "./domain-events.js";
 
 export { EventDispatcher } from "./event-dispatcher.js";
+export type { HandlerErrorCallback } from "./event-dispatcher.js";

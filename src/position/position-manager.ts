@@ -158,8 +158,7 @@ export class PositionManager {
 		if (!isOk(result)) return null;
 
 		const reduced = unwrap(result);
-		const pnlPerUnit = exitPrice.sub(pos.entryPrice);
-		const pnl = pnlPerUnit.mul(reduceSize);
+		const pnl = reduced.realizedPnl.sub(pos.realizedPnl);
 
 		const newPositions = new Map(this.positions);
 		if (reduced.isClosed()) {

@@ -233,6 +233,30 @@ describe("PaperExecutor", () => {
 		});
 	});
 
+	describe("fillProbability edge cases (HARD-16)", () => {
+		it("fillProbability > 1 fills more than intent size", async () => {
+			// Documents current behavior: fillProbability is not clamped
+			const executor = new PaperExecutor({ fillProbability: 1.5 });
+			const result = await executor.submit(testIntent({ size: d("100") }));
+			expect(isOk(result)).toBe(true);
+			if (result.ok) {
+				// 1.5 * 100 = 150 — documents overfill behavior
+				expect(result.value.totalFilled.eq(d("150"))).toBe(true);
+			}
+		});
+
+		it("negative fillProbability produces negative fill size", async () => {
+			// Documents current behavior: no validation on fillProbability
+			const executor = new PaperExecutor({ fillProbability: -0.5 });
+			const result = await executor.submit(testIntent({ size: d("100") }));
+			expect(isOk(result)).toBe(true);
+			if (result.ok) {
+				// -0.5 * 100 = -50
+				expect(result.value.totalFilled.isNegative()).toBe(true);
+			}
+		});
+	});
+
 	describe("clock integration", () => {
 		it("uses injected clock for fill timestamps", async () => {
 			const clock = new FakeClock(5000);

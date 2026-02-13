@@ -81,6 +81,54 @@ describe("PositionManager", () => {
 			const result = mgr.reduce(CID1, d("200"), d("0.60"));
 			expect(result).toBeNull();
 		});
+
+		it("P&L from reduce matches SdkPosition.tryReduce (BUG-1)", () => {
+			const mgr = managerWithPosition();
+			// Entry price = 0.50, exit price = 0.60, reduce 50 units
+			// Expected P&L = (0.60 - 0.50) * 50 = 5
+			const result = mgr.reduce(CID1, d("50"), d("0.60"));
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.pnl.eq(d("5"))).toBe(true);
+				// Also verify the remaining position's accumulated P&L
+				expect(result.manager.totalRealizedPnl().eq(d("5"))).toBe(true);
+			}
+		});
+
+		it("multi-step reduce accumulates P&L consistently (BUG-1 regression)", () => {
+			// This test catches the original BUG-1: manager independently computed
+			// pnlPerUnit * reduceSize instead of deriving from SdkPosition.tryReduce()
+			// After two partial reduces, the accumulated P&L must equal
+			// the sum of individual reduce P&Ls.
+			const mgr = managerWithPosition(); // entry=0.50, size=100
+			// First reduce: 30 units at 0.60 → P&L = (0.60 - 0.50) * 30 = 3
+			const r1 = mgr.reduce(CID1, d("30"), d("0.60"));
+			expect(r1).not.toBeNull();
+			if (!r1) return;
+			expect(r1.pnl.eq(d("3"))).toBe(true);
+			// Second reduce: 40 units at 0.70 → P&L = (0.70 - 0.50) * 40 = 8
+			const r2 = r1.manager.reduce(CID1, d("40"), d("0.70"));
+			expect(r2).not.toBeNull();
+			if (!r2) return;
+			expect(r2.pnl.eq(d("8"))).toBe(true);
+			// Total realized P&L = 3 + 8 = 11
+			expect(r2.manager.totalRealizedPnl().eq(d("11"))).toBe(true);
+			// Remaining position: 100 - 30 - 40 = 30 units
+			const remaining = r2.manager.get(CID1);
+			expect(remaining).not.toBeNull();
+			expect(remaining?.size.eq(d("30"))).toBe(true);
+		});
+
+		it("reduce with zero size is a no-op (HARD-7)", () => {
+			const mgr = managerWithPosition();
+			const result = mgr.reduce(CID1, d("0"), d("0.60"));
+			// Size 0 reduce should still succeed but produce zero P&L
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.pnl.isZero()).toBe(true);
+				expect(result.manager.get(CID1)?.size.eq(d("100"))).toBe(true);
+			}
+		});
 	});
 
 	describe("queries", () => {
