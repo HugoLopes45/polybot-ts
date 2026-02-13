@@ -19,6 +19,10 @@ export class MarketFeed {
 		this.watchdog = watchdog;
 	}
 
+	/**
+	 * Processes incoming WebSocket messages, applying book updates to snapshots.
+	 * @param messages - Array of WebSocket messages to process
+	 */
 	processMessages(messages: readonly WsMessage[]): void {
 		for (const msg of messages) {
 			if (msg.type === "book_update") {
@@ -28,6 +32,11 @@ export class MarketFeed {
 		}
 	}
 
+	/**
+	 * Returns the current orderbook snapshot for a condition.
+	 * @param cid - The condition ID to look up
+	 * @returns The orderbook snapshot, or null if no data received yet
+	 */
 	getBook(cid: ConditionId): OrderbookSnapshot | null {
 		return this.books.get(cid as string) ?? null;
 	}

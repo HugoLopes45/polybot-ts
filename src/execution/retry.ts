@@ -42,6 +42,22 @@ function sleep(ms: number): Promise<void> {
 	});
 }
 
+/**
+ * Wraps an Executor with retry logic using exponential backoff and jitter.
+ *
+ * Only retries errors marked as `isRetryable`. Non-retryable errors and
+ * cancel operations pass through immediately without retry.
+ *
+ * @param executor - The underlying executor to wrap
+ * @param config - Optional retry configuration overrides
+ * @returns A new Executor with retry behavior
+ *
+ * @example
+ * ```ts
+ * const retrying = withRetry(executor, { maxAttempts: 3 });
+ * const result = await retrying.submit(intent);
+ * ```
+ */
 export function withRetry(executor: Executor, config?: Partial<RetryConfig>): Executor {
 	const resolved = resolveConfig(config);
 

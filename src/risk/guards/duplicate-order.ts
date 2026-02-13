@@ -5,6 +5,12 @@ import { allow, block } from "../types.js";
 /**
  * Guard that prevents duplicate orders for the same market.
  * Blocks orders if a pending order already exists for either side of the market.
+ *
+ * @example
+ * ```ts
+ * const guard = new DuplicateOrderGuard();
+ * const verdict = guard.check(ctx);
+ * ```
  */
 export class DuplicateOrderGuard implements EntryGuard {
 	readonly name = "DuplicateOrder";

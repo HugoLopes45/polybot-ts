@@ -20,6 +20,17 @@ import type { SdkOrderIntent } from "../signal/types.js";
 import { OrderDirection } from "../signal/types.js";
 import type { Executor } from "./types.js";
 
+/**
+ * Configuration for the paper trading executor.
+ *
+ * @example
+ * ```ts
+ * const executor = new PaperExecutor({
+ *   fillProbability: 0.95,
+ *   slippageBps: 5,
+ * });
+ * ```
+ */
 export interface PaperExecutorConfig {
 	readonly fillProbability: number;
 	readonly slippageBps: number;
@@ -27,6 +38,7 @@ export interface PaperExecutorConfig {
 	readonly clock: Clock;
 }
 
+/** Record of a simulated fill, capturing the intent, result, and timestamp. */
 export interface FillRecord {
 	readonly intent: SdkOrderIntent;
 	readonly result: OrderResult;
@@ -108,6 +120,7 @@ export class PaperExecutor implements Executor {
 		);
 	}
 
+	/** Returns the complete history of simulated fills in chronological order. */
 	fillHistory(): readonly FillRecord[] {
 		return [...this.fills];
 	}

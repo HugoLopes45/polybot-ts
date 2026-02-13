@@ -30,6 +30,10 @@ export class WsClient {
 		this.config = config;
 	}
 
+	/**
+	 * Opens the WebSocket connection. Rejects if already connecting or open.
+	 * Starts ping/pong keepalive on successful connection.
+	 */
 	connect(): Promise<void> {
 		if (this.state !== "closed") {
 			return Promise.reject(new NetworkError("WebSocket is already connecting or open"));
@@ -76,6 +80,11 @@ export class WsClient {
 		});
 	}
 
+	/**
+	 * Sends data through the WebSocket connection.
+	 * @param data - String payload to send
+	 * @returns Result indicating success or a NetworkError
+	 */
 	send(data: string): Result<void, TradingError> {
 		if (this.state !== "open" || this.ws === null) {
 			return err(new NetworkError("WebSocket is not connected"));
@@ -92,6 +101,7 @@ export class WsClient {
 		}
 	}
 
+	/** Gracefully closes the WebSocket connection and clears keepalive timers. */
 	close(): void {
 		if (this.ws !== null) {
 			this.state = "closing";
@@ -100,18 +110,31 @@ export class WsClient {
 		}
 	}
 
+	/** Returns the current connection state. */
 	getState(): WsState {
 		return this.state;
 	}
 
+	/**
+	 * Registers a handler for incoming messages.
+	 * @param handler - Callback receiving the message string
+	 */
 	onMessage(handler: WsMessageHandler): void {
 		this.messageHandlers.push(handler);
 	}
 
+	/**
+	 * Registers a handler for connection close events.
+	 * @param handler - Callback receiving close code and reason
+	 */
 	onClose(handler: WsCloseHandler): void {
 		this.closeHandlers.push(handler);
 	}
 
+	/**
+	 * Registers a handler for connection errors.
+	 * @param handler - Callback receiving the error
+	 */
 	onError(handler: WsErrorHandler): void {
 		this.errorHandlers.push(handler);
 	}

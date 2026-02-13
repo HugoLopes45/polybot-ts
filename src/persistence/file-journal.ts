@@ -8,15 +8,18 @@
 import { appendFile, readFile } from "node:fs/promises";
 import type { Journal, JournalEntry } from "../strategy/journal.js";
 
+/** Configuration for creating a FileJournal instance. */
 export interface FileJournalConfig {
 	readonly filePath: string;
 }
 
+/** A line in the JSONL file that could not be parsed as valid JSON. */
 export interface CorruptLine {
 	readonly lineNumber: number;
 	readonly raw: string;
 }
 
+/** Result of restoring journal entries from a JSONL file. */
 export interface RestoreResult {
 	readonly entries: readonly unknown[];
 	readonly corruptLines: readonly CorruptLine[];
@@ -31,6 +34,10 @@ export class FileJournal implements Journal {
 		this.filePath = config.filePath;
 	}
 
+	/**
+	 * Creates a new FileJournal writing to the specified file path.
+	 * @param config - Configuration with the target file path
+	 */
 	static create(config: FileJournalConfig): FileJournal {
 		return new FileJournal(config);
 	}
@@ -45,6 +52,10 @@ export class FileJournal implements Journal {
 		await this.writeQueue;
 	}
 
+	/**
+	 * Reads and parses all journal entries from the JSONL file.
+	 * Corrupt lines are collected separately rather than silently dropped.
+	 */
 	async restore(): Promise<RestoreResult> {
 		let content: string;
 		try {
@@ -79,6 +90,7 @@ export class FileJournal implements Journal {
 		return { entries, corruptLines };
 	}
 
+	/** Marks the journal as closed, rejecting subsequent writes. */
 	async close(): Promise<void> {
 		this.closed = true;
 	}

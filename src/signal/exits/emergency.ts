@@ -1,5 +1,16 @@
 import type { DetectorContextLike, ExitPolicy, ExitReason, PositionLike } from "../types.js";
 
+/**
+ * Exit policy that closes positions under emergency conditions.
+ * Configurable triggers: minimum time remaining, maximum hold duration,
+ * and maximum spread. Acts as a safety net when other exits don't fire.
+ *
+ * @example
+ * ```ts
+ * const exit = EmergencyExit.conservative(); // 2min remaining, 1h max hold
+ * const reason = exit.shouldExit(position, ctx);
+ * ```
+ */
 export class EmergencyExit implements ExitPolicy {
 	readonly name = "Emergency";
 	private readonly minTimeRemainingMs: number | null;
@@ -16,6 +27,10 @@ export class EmergencyExit implements ExitPolicy {
 		this.maxSpreadPct = opts.maxSpreadPct ?? null;
 	}
 
+	/**
+	 * Creates an emergency exit with custom triggers.
+	 * @param opts Configuration with optional minTimeRemainingMs, maxHoldTimeMs, maxSpreadPct
+	 */
 	static create(opts: {
 		minTimeRemainingMs?: number;
 		maxHoldTimeMs?: number;
@@ -24,6 +39,7 @@ export class EmergencyExit implements ExitPolicy {
 		return new EmergencyExit(opts);
 	}
 
+	/** Creates a conservative emergency exit with 2 minutes remaining and 1 hour max hold. */
 	static conservative(): EmergencyExit {
 		return new EmergencyExit({
 			minTimeRemainingMs: 120_000,
@@ -31,6 +47,7 @@ export class EmergencyExit implements ExitPolicy {
 		});
 	}
 
+	/** Creates an aggressive emergency exit with 30 seconds remaining and 30 minutes max hold. */
 	static aggressive(): EmergencyExit {
 		return new EmergencyExit({
 			minTimeRemainingMs: 30_000,

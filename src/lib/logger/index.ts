@@ -97,7 +97,18 @@ function wrapPino(pinoLogger: pino.Logger): Logger {
 	};
 }
 
-/** Create a Logger backed by pino with auto-redaction and optional custom destination. */
+/**
+ * Creates a Logger backed by pino with auto-redaction and optional custom destination.
+ *
+ * @param config - Logger configuration (level, redact paths, destination)
+ * @returns A Logger instance with automatic credential redaction
+ *
+ * @example
+ * ```ts
+ * const logger = createLogger({ level: "info" });
+ * logger.info({ orderId: "abc" }, "Order submitted");
+ * ```
+ */
 export function createLogger(config: LoggerConfig): Logger {
 	const pinoOptions: pino.LoggerOptions = {
 		level: config.level,

@@ -5,6 +5,7 @@ import { SystemClock } from "../shared/time.js";
 import type { Clock } from "../shared/time.js";
 import type { Subscription, WsMessage } from "./types.js";
 
+/** Configuration for the WebSocket connection manager. */
 export interface WsManagerConfig {
 	heartbeatTimeoutMs?: number;
 	clock?: Clock;
@@ -50,6 +51,7 @@ export class WsManager {
 		return this._generation;
 	}
 
+	/** Returns true if no message has been received within the heartbeat timeout. */
 	isHeartbeatStale(): boolean {
 		if (this.heartbeatTimeoutMs < 0) {
 			return false;
@@ -60,6 +62,7 @@ export class WsManager {
 		return this.clock.now() - this.lastMessageAtMs > this.heartbeatTimeoutMs;
 	}
 
+	/** Returns the heartbeat health status: "healthy" or "stale". */
 	checkHeartbeat(): "healthy" | "stale" {
 		return this.isHeartbeatStale() ? "stale" : "healthy";
 	}
@@ -70,6 +73,10 @@ export class WsManager {
 		this.lastMessageAtMs = this.clock.now();
 	}
 
+	/**
+	 * Subscribes to a WebSocket channel. Subscriptions are replayed after reconnect.
+	 * @param sub - The subscription to register
+	 */
 	subscribe(sub: Subscription): Result<void, TradingError> {
 		this.subscriptions.set(sub.channel, sub);
 		return this.client.send(
@@ -77,17 +84,23 @@ export class WsManager {
 		);
 	}
 
+	/**
+	 * Unsubscribes from a WebSocket channel.
+	 * @param channel - The channel name to unsubscribe from
+	 */
 	unsubscribe(channel: string): Result<void, TradingError> {
 		this.subscriptions.delete(channel);
 		return this.client.send(JSON.stringify({ action: "unsubscribe", channel }));
 	}
 
+	/** Drains and returns all buffered messages, clearing the buffer. */
 	drain(): WsMessage[] {
 		const messages = this.buffer;
 		this.buffer = [];
 		return messages;
 	}
 
+	/** Closes the connection, clears buffers, reconnects, and replays subscriptions. */
 	async reconnect(): Promise<void> {
 		this.client.close();
 		this.buffer = [];

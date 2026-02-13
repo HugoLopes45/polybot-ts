@@ -41,6 +41,10 @@ export class DetectorContext implements MarketView, PositionView, OracleView, St
 		this.params = params;
 	}
 
+	/**
+	 * Creates a new DetectorContext from the given parameters.
+	 * @param params - Snapshot of all market, position, oracle, state, and risk data
+	 */
 	static create(params: DetectorContextParams): DetectorContext {
 		return new DetectorContext(params);
 	}

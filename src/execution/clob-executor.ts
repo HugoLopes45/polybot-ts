@@ -1,5 +1,14 @@
 /**
- * ClobExecutor — Executor implementation backed by the Polymarket CLOB API.
+ * ClobExecutor — Executor backed by the Polymarket CLOB API.
+ *
+ * Submits orders through the CLOB client with rate limiting.
+ * Maps CLOB API responses to the SDK's `OrderResult` model.
+ *
+ * @example
+ * ```ts
+ * const executor = new ClobExecutor(clobClient, rateLimiter);
+ * const result = await executor.submit(orderIntent);
+ * ```
  */
 
 import type { ClobClient } from "../lib/clob/client.js";

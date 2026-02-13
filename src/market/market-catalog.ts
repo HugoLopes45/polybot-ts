@@ -49,6 +49,10 @@ export class MarketCatalog {
 		this.rateLimiter = config?.rateLimiter;
 	}
 
+	/**
+	 * Retrieves market information by condition ID, using cache when available.
+	 * @param id - The condition ID of the market
+	 */
 	async getMarket(id: ConditionId): Promise<Result<MarketInfo, TradingError>> {
 		const key = id as string;
 		const cached = this.cache.get(key);
@@ -82,6 +86,10 @@ export class MarketCatalog {
 		return ok(market);
 	}
 
+	/**
+	 * Searches for markets matching a query string, with optional caching and rate limiting.
+	 * @param query - The search query
+	 */
 	async searchMarkets(query: string): Promise<Result<MarketInfo[], TradingError>> {
 		if (this.searchCache) {
 			const cached = this.searchCache.get(query);
