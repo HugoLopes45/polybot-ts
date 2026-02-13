@@ -8,8 +8,8 @@ import { isErr, isOk } from "../shared/result.js";
 import { FakeClock } from "../shared/time.js";
 import { OrderDirection } from "../signal/types.js";
 import type { SdkOrderIntent } from "../signal/types.js";
+import { OrderCoordinator } from "./order-coordinator.js";
 import { OrderRegistry } from "./order-registry.js";
-import { OrderService } from "./order-service.js";
 import { PendingState } from "./types.js";
 import type { OrderResult } from "./types.js";
 
@@ -29,11 +29,11 @@ function setup() {
 	const clock = new FakeClock(1000);
 	const registry = OrderRegistry.create(clock);
 	const executor = new PaperExecutor({ clock, fillProbability: 1 });
-	const service = new OrderService(registry, clock);
+	const service = new OrderCoordinator(registry, clock);
 	return { clock, registry, executor, service };
 }
 
-describe("OrderService", () => {
+describe("OrderCoordinator", () => {
 	describe("submit", () => {
 		it("returns ok with OrderHandle containing clientOrderId", async () => {
 			const { service, executor } = setup();

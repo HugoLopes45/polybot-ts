@@ -8,9 +8,9 @@ import type { Clock } from "../shared/time.js";
 import type { MarketInfo } from "./types.js";
 
 /**
- * Dependencies required by MarketService to interact with external market data.
+ * Dependencies required by MarketCatalog to interact with external market data.
  */
-export interface MarketServiceDeps {
+export interface MarketProviders {
 	getMarket(id: string): Promise<MarketInfo | null>;
 	searchMarkets(query: string): Promise<MarketInfo[]>;
 }
@@ -21,11 +21,11 @@ interface CacheEntry {
 }
 
 /**
- * Service for accessing market information with caching support.
+ * Catalog for accessing market information with caching support.
  * Provides methods to get market details and search markets.
  */
-export class MarketService {
-	private readonly deps: MarketServiceDeps;
+export class MarketCatalog {
+	private readonly deps: MarketProviders;
 	private readonly clock: Clock;
 	private readonly cacheTtlMs: number;
 	private readonly cache: Map<string, CacheEntry>;
@@ -33,7 +33,7 @@ export class MarketService {
 	private readonly rateLimiter: TokenBucketRateLimiter | undefined;
 
 	constructor(
-		deps: MarketServiceDeps,
+		deps: MarketProviders,
 		config?: {
 			cacheTtlMs?: number;
 			clock?: Clock;

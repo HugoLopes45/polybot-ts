@@ -1,3 +1,6 @@
+import type { Clock } from "../../shared/time.js";
+import { SystemClock } from "../../shared/time.js";
+
 /**
  * Configuration for a TTL + LRU cache.
  */
@@ -6,6 +9,8 @@ export interface CacheConfig {
 	ttl: number;
 	/** Maximum number of entries before LRU eviction */
 	maxSize: number;
+	/** Injectable clock for deterministic testing. Defaults to SystemClock. */
+	clock?: Clock | undefined;
 }
 
 interface CacheEntry<T> {
@@ -47,6 +52,7 @@ export class Cache<T> {
 	private readonly cache = new Map<string, CacheEntry<T>>();
 	private readonly ttl: number;
 	private readonly maxSize: number;
+	private readonly clock: Clock;
 	private hits = 0;
 	private misses = 0;
 
@@ -57,6 +63,7 @@ export class Cache<T> {
 	constructor(config: CacheConfig) {
 		this.ttl = config.ttl;
 		this.maxSize = config.maxSize;
+		this.clock = config.clock ?? SystemClock;
 	}
 
 	/**
@@ -71,14 +78,14 @@ export class Cache<T> {
 			return undefined;
 		}
 
-		if (Date.now() > entry.expires) {
+		if (this.clock.now() > entry.expires) {
 			this.cache.delete(key);
 			this.misses++;
 			return undefined;
 		}
 
 		entry.accessCount++;
-		entry.lastAccess = Date.now();
+		entry.lastAccess = this.clock.now();
 		this.hits++;
 		return entry.value;
 	}
@@ -96,9 +103,9 @@ export class Cache<T> {
 
 		this.cache.set(key, {
 			value,
-			expires: Date.now() + (ttl ?? this.ttl),
+			expires: this.clock.now() + (ttl ?? this.ttl),
 			accessCount: 0,
-			lastAccess: Date.now(),
+			lastAccess: this.clock.now(),
 		});
 	}
 

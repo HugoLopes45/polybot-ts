@@ -7,10 +7,10 @@ export type {
 } from "./types.js";
 
 export { BuiltStrategy } from "./built-strategy.js";
-export type { BuiltStrategyDeps, StateView, TickContext } from "./built-strategy.js";
+export type { StrategyAggregates, StateView, TickContext } from "./built-strategy.js";
 
 export { StrategyBuilder } from "./strategy-builder.js";
-export type { StrategyBuilderDeps } from "./strategy-builder.js";
+export type { StrategyComponents } from "./strategy-builder.js";
 
 export type { Journal, JournalEntry } from "./journal.js";
 

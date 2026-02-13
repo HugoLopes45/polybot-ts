@@ -49,7 +49,7 @@ export interface ClobOrderResponse {
  * Dependencies required by the CLOB client.
  * Abstracts the underlying HTTP/WebSocket communication.
  */
-export interface ClobClientDeps {
+export interface ClobProviders {
 	/** Submits an order to the CLOB and returns the response */
 	submitOrder(req: ClobOrderRequest): Promise<ClobOrderResponse>;
 	/** Cancels an existing order by its ID */

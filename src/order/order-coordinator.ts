@@ -1,5 +1,5 @@
 /**
- * OrderService — orchestrates order submission through an Executor,
+ * OrderCoordinator — orchestrates order submission through an Executor,
  * tracks state in OrderRegistry, and builds OrderHandles with lifecycle callbacks.
  */
 
@@ -27,13 +27,13 @@ type HandleCustomizer = (builder: OrderHandleBuilder) => OrderHandleBuilder;
  * Coordinates with an Executor for order submission/cancellation and
  * maintains order state in an OrderRegistry.
  */
-export class OrderService {
+export class OrderCoordinator {
 	private readonly registry: OrderRegistry;
 	private readonly clock: Clock;
 	private orderCounter = 0;
 
 	/**
-	 * Creates a new OrderService.
+	 * Creates a new OrderCoordinator.
 	 * @param registry - The order registry for tracking pending orders
 	 * @param clock - Optional clock for time-based operations (defaults to SystemClock)
 	 */

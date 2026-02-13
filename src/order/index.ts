@@ -19,4 +19,4 @@ export { canTransitionTo, isActive, isTerminal, tryTransition } from "./pending-
 export type { CancelHandler, CompleteHandler, FillHandler, OrderHandle } from "./order-handle.js";
 export { OrderHandleBuilder } from "./order-handle-builder.js";
 export { OrderRegistry } from "./order-registry.js";
-export { OrderService } from "./order-service.js";
+export { OrderCoordinator } from "./order-coordinator.js";

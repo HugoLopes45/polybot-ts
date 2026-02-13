@@ -17,6 +17,8 @@ import type { GuardPipeline } from "../risk/guard-pipeline.js";
 import type { GuardContext } from "../risk/types.js";
 import type { TradingError } from "../shared/errors.js";
 import { isErr } from "../shared/result.js";
+import type { Clock } from "../shared/time.js";
+import { SystemClock } from "../shared/time.js";
 import type { ExitPipeline } from "../signal/exit-pipeline.js";
 import type { DetectorContextLike, SdkOrderIntent, SignalDetector } from "../signal/types.js";
 import type { Journal } from "./journal.js";
@@ -37,7 +39,7 @@ import type {
 export type TickContext = DetectorContextLike & GuardContext;
 
 /** All dependencies required to construct a BuiltStrategy. */
-export interface BuiltStrategyDeps {
+export interface StrategyAggregates {
 	position: PositionAggregate;
 	risk: RiskAggregate;
 	lifecycle: LifecycleAggregate;
@@ -46,6 +48,7 @@ export interface BuiltStrategyDeps {
 	executor: Executor;
 	detector: SignalDetector;
 	journal: Journal | null;
+	clock?: Clock | undefined;
 	warmupTicks?: number | undefined;
 }
 
@@ -69,12 +72,13 @@ export class BuiltStrategy {
 	private readonly executor: Executor;
 	private readonly detector: SignalDetector;
 	private readonly journal: Journal | null;
+	private readonly clock: Clock;
 	private readonly warmupTicks: number;
 	private tickCount = 0;
 
 	private tickInProgress = false;
 
-	public constructor(deps: BuiltStrategyDeps) {
+	public constructor(deps: StrategyAggregates) {
 		this.positionManager = deps.position.positionManager;
 		this.guardPipeline = deps.risk.guardPipeline;
 		this.exitPipeline = deps.risk.exitPipeline;
@@ -89,6 +93,7 @@ export class BuiltStrategy {
 		this.executor = deps.executor;
 		this.detector = deps.detector;
 		this.journal = deps.journal;
+		this.clock = deps.clock ?? SystemClock;
 		this.warmupTicks = deps.warmupTicks ?? 0;
 	}
 
@@ -121,7 +126,7 @@ export class BuiltStrategy {
 			if (guardVerdict.type === "block") {
 				this.eventDispatcher.emitSdk({
 					type: "guard_blocked",
-					timestamp: Date.now(),
+					timestamp: this.clock.now(),
 					guardName: guardVerdict.guard,
 					reason: guardVerdict.reason,
 					recoverable: guardVerdict.recoverable,
@@ -137,7 +142,7 @@ export class BuiltStrategy {
 					type: "guard_blocked",
 					guardName: guardVerdict.guard,
 					reason: guardVerdict.reason,
-					timestamp: Date.now(),
+					timestamp: this.clock.now(),
 				});
 
 				return;
@@ -192,7 +197,7 @@ export class BuiltStrategy {
 				from,
 				to,
 				transition: type,
-				timestamp: Date.now(),
+				timestamp: this.clock.now(),
 			});
 		} else {
 			this.emitError("STATE_TRANSITION_FAILED", `${type} failed: ${result.error.message}`);
@@ -217,7 +222,11 @@ export class BuiltStrategy {
 
 			const orderResult = result.value;
 			const exitPrice = orderResult.avgFillPrice ?? intent.price;
-			const closeResult = this.positionManager.close(position.conditionId, exitPrice, Date.now());
+			const closeResult = this.positionManager.close(
+				position.conditionId,
+				exitPrice,
+				this.clock.now(),
+			);
 
 			if (!closeResult) {
 				this.emitError("POSITION_CLOSE_FAILED", "Position close returned null after fill");
@@ -229,7 +238,7 @@ export class BuiltStrategy {
 
 			this.eventDispatcher.emitSdk({
 				type: "position_closed",
-				timestamp: Date.now(),
+				timestamp: this.clock.now(),
 				conditionId: position.conditionId,
 				tokenId: position.tokenId,
 				entryPrice: position.entryPrice.toNumber(),
@@ -247,7 +256,7 @@ export class BuiltStrategy {
 				pnl: closeResult.pnl.toNumber(),
 				reason: exitReason.type,
 				fee: fee.toNumber(),
-				timestamp: Date.now(),
+				timestamp: this.clock.now(),
 			});
 		}
 	}
@@ -275,7 +284,7 @@ export class BuiltStrategy {
 			intent.side,
 			entryPrice,
 			intent.size,
-			Date.now(),
+			this.clock.now(),
 		);
 
 		if (isErr(openResult)) {
@@ -291,7 +300,7 @@ export class BuiltStrategy {
 
 		this.eventDispatcher.emitSdk({
 			type: "position_opened",
-			timestamp: Date.now(),
+			timestamp: this.clock.now(),
 			conditionId: intent.conditionId,
 			tokenId: intent.tokenId,
 			side: intent.side,
@@ -301,7 +310,7 @@ export class BuiltStrategy {
 
 		this.eventDispatcher.emitSdk({
 			type: "order_placed",
-			timestamp: Date.now(),
+			timestamp: this.clock.now(),
 			clientOrderId: orderResult.clientOrderId,
 			conditionId: intent.conditionId,
 			tokenId: intent.tokenId,
@@ -314,13 +323,13 @@ export class BuiltStrategy {
 			type: "entry_signal",
 			signal,
 			intent,
-			timestamp: Date.now(),
+			timestamp: this.clock.now(),
 		});
 		await this.safeJournal({
 			type: "order_submitted",
 			intent,
 			clientOrderId: orderResult.clientOrderId,
-			timestamp: Date.now(),
+			timestamp: this.clock.now(),
 		});
 		await this.safeJournal({
 			type: "position_opened",
@@ -329,7 +338,7 @@ export class BuiltStrategy {
 			side: intent.side,
 			entryPrice: entryPrice.toNumber(),
 			size: intent.size.toNumber(),
-			timestamp: Date.now(),
+			timestamp: this.clock.now(),
 		});
 	}
 
@@ -339,7 +348,7 @@ export class BuiltStrategy {
 		if (spotPrice === null) {
 			this.eventDispatcher.emitSdk({
 				type: "error_occurred",
-				timestamp: Date.now(),
+				timestamp: this.clock.now(),
 				code: "SPOT_PRICE_UNAVAILABLE",
 				message: `Using entry price as fallback for exit on ${position.conditionId}`,
 				category: "non_retryable",
@@ -362,7 +371,7 @@ export class BuiltStrategy {
 	): Promise<void> {
 		this.eventDispatcher.emitSdk({
 			type: "error_occurred",
-			timestamp: Date.now(),
+			timestamp: this.clock.now(),
 			code,
 			message: error.message,
 			category: error.category,
@@ -371,14 +380,14 @@ export class BuiltStrategy {
 			type: "error",
 			code,
 			message: `${error.message} (condition: ${conditionId})`,
-			timestamp: Date.now(),
+			timestamp: this.clock.now(),
 		});
 	}
 
 	private emitError(code: string, message: string): void {
 		this.eventDispatcher.emitSdk({
 			type: "error_occurred",
-			timestamp: Date.now(),
+			timestamp: this.clock.now(),
 			code,
 			message,
 			category: "fatal",
@@ -393,7 +402,7 @@ export class BuiltStrategy {
 			const detail = e instanceof Error ? e.message : String(e);
 			this.eventDispatcher.emitSdk({
 				type: "error_occurred",
-				timestamp: Date.now(),
+				timestamp: this.clock.now(),
 				code: "JOURNAL_WRITE_FAILED",
 				message: `Journal write failed for ${entry.type}: ${detail}`,
 				category: "non_retryable",

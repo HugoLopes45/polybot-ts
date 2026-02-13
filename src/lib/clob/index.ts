@@ -1,5 +1,5 @@
 export type {
-	ClobClientDeps,
+	ClobProviders,
 	ClobConfig,
 	ClobOrderRequest,
 	ClobOrderResponse,

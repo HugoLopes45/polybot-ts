@@ -156,7 +156,7 @@ export {
 	tryTransition,
 	OrderHandleBuilder,
 	OrderRegistry,
-	OrderService,
+	OrderCoordinator,
 } from "./order/index.js";
 
 // ── Context ─────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ export {
 	type OrderbookLevel,
 	type OrderbookSnapshot,
 	type ScanResult,
-	type MarketServiceDeps,
+	type MarketProviders,
 	checkArbitrage,
 	applyDelta,
 	bestAsk,
@@ -220,7 +220,7 @@ export {
 	getEffectivePrices,
 	midPrice,
 	spread,
-	MarketService,
+	MarketCatalog,
 	scan,
 } from "./market/index.js";
 
@@ -276,10 +276,10 @@ export {
 	TestContextBuilder,
 } from "./strategy/index.js";
 export type {
-	BuiltStrategyDeps,
+	StrategyAggregates,
 	StateView as StrategyStateView,
 	TickContext,
-	StrategyBuilderDeps,
+	StrategyComponents,
 	Journal,
 	JournalEntry,
 } from "./strategy/index.js";

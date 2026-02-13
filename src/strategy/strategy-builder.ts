@@ -14,7 +14,7 @@ import { SystemClock } from "../shared/time.js";
 import { ExitPipeline } from "../signal/exit-pipeline.js";
 import type { SignalDetector } from "../signal/types.js";
 import { BuiltStrategy } from "./built-strategy.js";
-import type { BuiltStrategyDeps } from "./built-strategy.js";
+import type { StrategyAggregates } from "./built-strategy.js";
 import type { Journal } from "./journal.js";
 import type {
 	AccountingAggregate,
@@ -25,7 +25,7 @@ import type {
 } from "./types.js";
 
 /** Optional dependency overrides for the StrategyBuilder. */
-export interface StrategyBuilderDeps {
+export interface StrategyComponents {
 	clock?: Clock | undefined;
 	executor?: Executor | undefined;
 	feeModel?: FeeModel | undefined;
@@ -47,7 +47,7 @@ export class StrategyBuilder {
 	private readonly detector: SignalDetector | undefined;
 	private readonly warmupTicks: number | undefined;
 
-	constructor(deps: StrategyBuilderDeps = {}) {
+	constructor(deps: StrategyComponents = {}) {
 		this.clock = deps.clock ?? SystemClock;
 		this.executor = deps.executor;
 		this.feeModel = deps.feeModel;
@@ -58,7 +58,7 @@ export class StrategyBuilder {
 		this.warmupTicks = deps.warmupTicks;
 	}
 
-	static create(deps?: StrategyBuilderDeps): StrategyBuilder {
+	static create(deps?: StrategyComponents): StrategyBuilder {
 		return new StrategyBuilder(deps);
 	}
 
@@ -118,7 +118,7 @@ export class StrategyBuilder {
 			feeModel: this.feeModel ?? fixedNotionalFee(0),
 		};
 
-		const deps: BuiltStrategyDeps = {
+		const deps: StrategyAggregates = {
 			position: positionAggregate,
 			risk: riskAggregate,
 			lifecycle: lifecycleAggregate,
@@ -127,6 +127,7 @@ export class StrategyBuilder {
 			executor: this.executor ?? this.createDefaultExecutor(),
 			detector: this.detector ?? this.createDefaultDetector(),
 			journal: this.journal,
+			clock: this.clock,
 			warmupTicks: this.warmupTicks,
 		};
 
@@ -150,7 +151,7 @@ export class StrategyBuilder {
 			return err("Strategy requires a fee model");
 		}
 
-		const deps: BuiltStrategyDeps = {
+		const deps: StrategyAggregates = {
 			position: { positionManager: PositionManager.create() },
 			risk: { guardPipeline: this.guards, exitPipeline: this.exits },
 			lifecycle: {
@@ -165,13 +166,14 @@ export class StrategyBuilder {
 			executor: this.executor,
 			detector: this.detector,
 			journal: this.journal,
+			clock: this.clock,
 			warmupTicks: this.warmupTicks,
 		};
 
 		return ok(new BuiltStrategy(deps));
 	}
 
-	private snapshot(): StrategyBuilderDeps {
+	private snapshot(): StrategyComponents {
 		return {
 			clock: this.clock,
 			executor: this.executor,

@@ -8,5 +8,5 @@ export type {
 export { applyDelta, bestAsk, bestBid, effectivePrice, midPrice, spread } from "./orderbook.js";
 export { getEffectivePrices, type EffectivePrices } from "./effective-prices.js";
 export { checkArbitrage, type ArbitrageLeg, type ArbitrageOpportunity } from "./arbitrage.js";
-export { MarketService, type MarketServiceDeps } from "./market-service.js";
+export { MarketCatalog, type MarketProviders } from "./market-catalog.js";
 export { scan } from "./scanner.js";

@@ -5,12 +5,12 @@
 import { classifyError } from "../../shared/errors.js";
 import type { TradingError } from "../../shared/errors.js";
 import { type Result, err, ok } from "../../shared/result.js";
-import type { ClobClientDeps, ClobOrderRequest, ClobOrderResponse } from "./types.js";
+import type { ClobOrderRequest, ClobOrderResponse, ClobProviders } from "./types.js";
 
 export class ClobClient {
-	private readonly deps: ClobClientDeps;
+	private readonly deps: ClobProviders;
 
-	constructor(deps: ClobClientDeps) {
+	constructor(deps: ClobProviders) {
 		this.deps = deps;
 	}
 

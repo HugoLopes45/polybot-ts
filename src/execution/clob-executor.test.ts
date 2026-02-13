@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ClobClient } from "../lib/clob/client.js";
-import type { ClobClientDeps, ClobOrderResponse } from "../lib/clob/types.js";
+import type { ClobOrderResponse, ClobProviders } from "../lib/clob/types.js";
 import { TokenBucketRateLimiter } from "../lib/http/rate-limiter.js";
 import { PendingState } from "../order/types.js";
 import { Decimal } from "../shared/decimal.js";
@@ -31,7 +31,7 @@ const VALID_RESPONSE: ClobOrderResponse = {
 	avgPrice: "0.55",
 };
 
-function makeDeps(overrides: Partial<ClobClientDeps> = {}): ClobClientDeps {
+function makeDeps(overrides: Partial<ClobProviders> = {}): ClobProviders {
 	return {
 		submitOrder: overrides.submitOrder ?? (() => Promise.resolve(VALID_RESPONSE)),
 		cancelOrder: overrides.cancelOrder ?? (() => Promise.resolve()),
@@ -39,7 +39,7 @@ function makeDeps(overrides: Partial<ClobClientDeps> = {}): ClobClientDeps {
 	};
 }
 
-function makeExecutor(depsOverrides: Partial<ClobClientDeps> = {}) {
+function makeExecutor(depsOverrides: Partial<ClobProviders> = {}) {
 	const clock = new FakeClock(1000);
 	const client = new ClobClient(makeDeps(depsOverrides));
 	const limiter = new TokenBucketRateLimiter({

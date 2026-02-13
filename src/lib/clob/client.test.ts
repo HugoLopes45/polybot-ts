@@ -6,9 +6,9 @@ import { describe, expect, it } from "vitest";
 import { NetworkError, SystemError } from "../../shared/errors.js";
 import { isErr, isOk } from "../../shared/result.js";
 import { ClobClient } from "./client.js";
-import type { ClobClientDeps, ClobOrderResponse } from "./types.js";
+import type { ClobOrderResponse, ClobProviders } from "./types.js";
 
-function stubDeps(overrides: Partial<ClobClientDeps> = {}): ClobClientDeps {
+function stubDeps(overrides: Partial<ClobProviders> = {}): ClobProviders {
 	return {
 		submitOrder: overrides.submitOrder ?? (() => Promise.reject(new Error("not implemented"))),
 		cancelOrder: overrides.cancelOrder ?? (() => Promise.reject(new Error("not implemented"))),

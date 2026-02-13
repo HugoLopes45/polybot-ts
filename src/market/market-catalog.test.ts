@@ -5,7 +5,7 @@ import { ErrorCategory, RateLimitError } from "../shared/errors.js";
 import { conditionId } from "../shared/identifiers.js";
 import { isErr, isOk } from "../shared/result.js";
 import { FakeClock } from "../shared/time.js";
-import { MarketService } from "./market-service.js";
+import { MarketCatalog } from "./market-catalog.js";
 import type { MarketInfo } from "./types.js";
 
 const MARKET_A: MarketInfo = {
@@ -28,14 +28,14 @@ const MARKET_B: MarketInfo = {
 	endDate: "2025-12-31",
 };
 
-describe("MarketService", () => {
+describe("MarketCatalog", () => {
 	describe("getMarket", () => {
 		it("returns ok with market info from deps", async () => {
 			const deps = {
 				getMarket: async () => MARKET_A,
 				searchMarkets: async () => [],
 			};
-			const service = new MarketService(deps);
+			const service = new MarketCatalog(deps);
 
 			const result = await service.getMarket(conditionId("cond-a"));
 
@@ -50,7 +50,7 @@ describe("MarketService", () => {
 				getMarket: async () => null,
 				searchMarkets: async () => [],
 			};
-			const service = new MarketService(deps);
+			const service = new MarketCatalog(deps);
 
 			const result = await service.getMarket(conditionId("cond-missing"));
 
@@ -71,7 +71,7 @@ describe("MarketService", () => {
 				searchMarkets: async () => [],
 			};
 			const clock = new FakeClock(1000);
-			const service = new MarketService(deps, { clock, cacheTtlMs: 60_000 });
+			const service = new MarketCatalog(deps, { clock, cacheTtlMs: 60_000 });
 
 			await service.getMarket(conditionId("cond-a"));
 			await service.getMarket(conditionId("cond-a"));
@@ -89,7 +89,7 @@ describe("MarketService", () => {
 				searchMarkets: async () => [],
 			};
 			const clock = new FakeClock(1000);
-			const service = new MarketService(deps, { clock, cacheTtlMs: 5_000 });
+			const service = new MarketCatalog(deps, { clock, cacheTtlMs: 5_000 });
 
 			await service.getMarket(conditionId("cond-a"));
 			clock.advance(6_000);
@@ -105,7 +105,7 @@ describe("MarketService", () => {
 				getMarket: async () => null,
 				searchMarkets: async () => [MARKET_A, MARKET_B],
 			};
-			const service = new MarketService(deps);
+			const service = new MarketCatalog(deps);
 
 			const result = await service.searchMarkets("weather");
 
@@ -123,7 +123,7 @@ describe("MarketService", () => {
 					throw new Error("connection refused via econnrefused");
 				},
 			};
-			const service = new MarketService(deps);
+			const service = new MarketCatalog(deps);
 
 			const result = await service.searchMarkets("weather");
 
@@ -145,7 +145,7 @@ describe("MarketService", () => {
 				};
 				const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
 				const clock = new FakeClock(1000);
-				const service = new MarketService(deps, { clock, searchCache: cache });
+				const service = new MarketCatalog(deps, { clock, searchCache: cache });
 
 				await service.searchMarkets("weather");
 				await service.searchMarkets("weather");
@@ -164,7 +164,7 @@ describe("MarketService", () => {
 				};
 				const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
 				const clock = new FakeClock(1000);
-				const service = new MarketService(deps, { clock, searchCache: cache });
+				const service = new MarketCatalog(deps, { clock, searchCache: cache });
 
 				await service.searchMarkets("weather");
 
@@ -181,7 +181,7 @@ describe("MarketService", () => {
 				};
 				const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
 				const clock = new FakeClock(1000);
-				const service = new MarketService(deps, { clock, searchCache: cache });
+				const service = new MarketCatalog(deps, { clock, searchCache: cache });
 
 				await service.searchMarkets("weather");
 				await service.searchMarkets("snow");
@@ -203,7 +203,7 @@ describe("MarketService", () => {
 					refillRate: 0,
 					clock,
 				});
-				const service = new MarketService(deps, { clock, rateLimiter });
+				const service = new MarketCatalog(deps, { clock, rateLimiter });
 
 				await service.searchMarkets("weather");
 				const result = await service.searchMarkets("weather");
@@ -229,7 +229,7 @@ describe("MarketService", () => {
 					refillRate: 10,
 					clock,
 				});
-				const service = new MarketService(deps, { clock, rateLimiter });
+				const service = new MarketCatalog(deps, { clock, rateLimiter });
 
 				await service.searchMarkets("weather");
 				await service.searchMarkets("weather");
@@ -255,7 +255,7 @@ describe("MarketService", () => {
 					refillRate: 0,
 					clock,
 				});
-				const service = new MarketService(deps, { clock, searchCache: cache, rateLimiter });
+				const service = new MarketCatalog(deps, { clock, searchCache: cache, rateLimiter });
 
 				await service.searchMarkets("weather");
 				const result = await service.searchMarkets("weather");
@@ -280,7 +280,7 @@ describe("MarketService", () => {
 					refillRate: 0,
 					clock,
 				});
-				const service = new MarketService(deps, { clock, searchCache: cache, rateLimiter });
+				const service = new MarketCatalog(deps, { clock, searchCache: cache, rateLimiter });
 
 				const result = await service.searchMarkets("weather");
 
