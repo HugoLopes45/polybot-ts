@@ -334,6 +334,62 @@ describe("PositionReconciler", () => {
 		});
 	});
 
+	describe("toleranceBps (HARD-22)", () => {
+		it("should not flag size mismatch within tolerance", () => {
+			const reconciler = new PositionReconciler({ toleranceBps: 10 });
+			const sdkPositions = [createSdkPosition(CID1, TOKEN1, Decimal.from("100.001"))];
+			const exchangePositions = [createExchangePosition(CID1, TOKEN1, Decimal.from("100.0"))];
+
+			const result = reconciler.reconcile(sdkPositions, exchangePositions);
+
+			expect(result.actions).toHaveLength(0);
+		});
+
+		it("should flag size mismatch when exceeding tolerance", () => {
+			const reconciler = new PositionReconciler({ toleranceBps: 1 });
+			const sdkPositions = [createSdkPosition(CID1, TOKEN1, Decimal.from("100"))];
+			const exchangePositions = [createExchangePosition(CID1, TOKEN1, Decimal.from("99"))];
+
+			const result = reconciler.reconcile(sdkPositions, exchangePositions);
+
+			expect(result.actions).toHaveLength(1);
+			expect(result.actions[0]?.type).toBe("size_mismatch");
+		});
+
+		it("defaults toleranceBps to 0 (exact match)", () => {
+			const reconciler = new PositionReconciler();
+			const config = (reconciler as unknown as { config: ReconcilerConfig }).config;
+			expect(config.toleranceBps).toBe(0);
+		});
+	});
+
+	describe("shouldHalt includes orphans (HARD-23)", () => {
+		it("should halt when orphan count exceeds threshold", () => {
+			const reconciler = new PositionReconciler({ haltThreshold: 1 });
+			const sdkPositions = [
+				createSdkPosition(CID1, TOKEN1, Decimal.from("10")),
+				createSdkPosition(CID2, TOKEN2, Decimal.from("5")),
+			];
+			const exchangePositions: ExchangePosition[] = [];
+
+			const result = reconciler.reconcile(sdkPositions, exchangePositions);
+
+			expect(result.shouldHalt).toBe(true);
+			expect(result.summary).toContain("HALTED");
+			expect(result.summary).toContain("orphans");
+		});
+
+		it("should halt when combined orphans + unknowns exceed threshold", () => {
+			const reconciler = new PositionReconciler({ haltThreshold: 1 });
+			const sdkPositions = [createSdkPosition(CID1, TOKEN1, Decimal.from("10"))];
+			const exchangePositions = [createExchangePosition(CID2, TOKEN2, Decimal.from("5"))];
+
+			const result = reconciler.reconcile(sdkPositions, exchangePositions);
+
+			expect(result.shouldHalt).toBe(true);
+		});
+	});
+
 	describe("default config", () => {
 		it("should use default threshold of 3", () => {
 			const reconciler = new PositionReconciler();

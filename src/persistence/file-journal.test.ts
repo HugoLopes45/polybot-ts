@@ -314,4 +314,34 @@ describe("FileJournal", () => {
 		expect(result).toBeInstanceOf(Promise);
 		await expect(result).resolves.toBeUndefined();
 	});
+
+	it("close() drains pending writes (BUG-6)", async () => {
+		const journal = createJournal();
+
+		// Fire record without awaiting
+		const recordPromise = journal.record(makeGuardBlocked(1000));
+		// Immediately close
+		await journal.close();
+		// Ensure the record promise also settles
+		await recordPromise.catch(() => {});
+
+		const content = await readFile(filePath, "utf-8");
+		const lines = content.split("\n").filter((l) => l.length > 0);
+		expect(lines).toHaveLength(1);
+	});
+
+	it("concurrent writes produce zero corrupt lines (HARD-25)", async () => {
+		const journal = createJournal();
+		const writes: Promise<void>[] = [];
+
+		for (let i = 0; i < 20; i++) {
+			writes.push(journal.record(makeGuardBlocked(`guard-${i}`, i * 1000)));
+		}
+
+		await Promise.all(writes);
+
+		const result = await journal.restore();
+		expect(result.entries).toHaveLength(20);
+		expect(result.corruptLines).toHaveLength(0);
+	});
 });

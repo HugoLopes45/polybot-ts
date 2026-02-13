@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PaperExecutor } from "../execution/paper-executor.js";
 import { Decimal } from "../shared/decimal.js";
 import { conditionId, marketTokenId } from "../shared/identifiers.js";
@@ -122,6 +122,21 @@ describe("OrderCoordinator", () => {
 			expect(isOk(result)).toBe(true);
 			expect(captured).not.toBeNull();
 			expect(captured?.finalState).toBe(PendingState.Filled);
+		});
+	});
+
+	describe("state machine transitions (HARD-24)", () => {
+		it("transitions through Submitted before finalState on success", async () => {
+			const { service, executor, registry } = setup();
+			const spy = vi.spyOn(registry, "updateState");
+
+			await service.submit(testIntent(), executor);
+
+			const calls = spy.mock.calls.map(([, state]) => state);
+			expect(calls).toContain(PendingState.Submitted);
+			const submittedIdx = calls.indexOf(PendingState.Submitted);
+			const filledIdx = calls.indexOf(PendingState.Filled);
+			expect(submittedIdx).toBeLessThan(filledIdx);
 		});
 	});
 

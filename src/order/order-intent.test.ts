@@ -57,4 +57,16 @@ describe("OrderIntent factories", () => {
 	it("rejects negative size", () => {
 		expect(() => buyYes(CID, YES_TID, d("0.55"), d("-10"))).toThrow();
 	});
+
+	it("rejects price exceeding 1.0 for prediction markets (HARD-2)", () => {
+		expect(() => buyYes(CID, YES_TID, d("1.01"), d("100"))).toThrow(/must not exceed 1\.0/);
+	});
+
+	it("allows price exactly 1.0", () => {
+		expect(() => buyYes(CID, YES_TID, d("1.0"), d("100"))).not.toThrow();
+	});
+
+	it("allows price of 0", () => {
+		expect(() => buyYes(CID, YES_TID, d("0"), d("100"))).not.toThrow();
+	});
 });

@@ -254,6 +254,77 @@ describe("getEffectivePrices", () => {
 		});
 	});
 
+	describe("negative mirror clamp", () => {
+		it("noBid > 1 does not produce negative buyYes", () => {
+			const yesBook: OrderbookSnapshot = {
+				bids: [],
+				asks: [],
+				timestampMs: 0,
+			};
+			const noBook: OrderbookSnapshot = {
+				bids: [level(1.05, 10)],
+				asks: [],
+				timestampMs: 0,
+			};
+			const result = getEffectivePrices(yesBook, noBook);
+			// mirror = 1 - 1.05 = -0.05, should clamp to 0
+			expect(result.buyYes).not.toBeNull();
+			expect(result.buyYes?.toNumber()).toBeGreaterThanOrEqual(0);
+			expect(result.buyYes?.toNumber()).toBe(0);
+		});
+
+		it("noAsk > 1 does not produce negative sellYes mirror", () => {
+			const yesBook: OrderbookSnapshot = {
+				bids: [],
+				asks: [],
+				timestampMs: 0,
+			};
+			const noBook: OrderbookSnapshot = {
+				bids: [],
+				asks: [level(1.1, 10)],
+				timestampMs: 0,
+			};
+			const result = getEffectivePrices(yesBook, noBook);
+			// mirror = 1 - 1.10 = -0.10, should clamp to 0
+			expect(result.sellYes).not.toBeNull();
+			expect(result.sellYes?.toNumber()).toBeGreaterThanOrEqual(0);
+		});
+
+		it("yesBid > 1 does not produce negative buyNo mirror", () => {
+			const yesBook: OrderbookSnapshot = {
+				bids: [level(1.02, 10)],
+				asks: [],
+				timestampMs: 0,
+			};
+			const noBook: OrderbookSnapshot = {
+				bids: [],
+				asks: [],
+				timestampMs: 0,
+			};
+			const result = getEffectivePrices(yesBook, noBook);
+			// mirror = 1 - 1.02 = -0.02, should clamp to 0
+			expect(result.buyNo).not.toBeNull();
+			expect(result.buyNo?.toNumber()).toBeGreaterThanOrEqual(0);
+		});
+
+		it("mirror values above 1 are clamped to 1", () => {
+			// noBid = -0.5 (unusual but technically possible) → mirror = 1 - (-0.5) = 1.5
+			const yesBook: OrderbookSnapshot = {
+				bids: [],
+				asks: [],
+				timestampMs: 0,
+			};
+			const noBook: OrderbookSnapshot = {
+				bids: [level(0, 10)],
+				asks: [],
+				timestampMs: 0,
+			};
+			const result = getEffectivePrices(yesBook, noBook);
+			// mirror = 1 - 0 = 1, should be clamped at 1
+			expect(result.buyYes?.toNumber()).toBeLessThanOrEqual(1);
+		});
+	});
+
 	describe("boundary prices", () => {
 		it("handles boundary prices with partial liquidity", () => {
 			const yesBook: OrderbookSnapshot = {

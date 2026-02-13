@@ -327,9 +327,19 @@ describe("ExposureGuard", () => {
 		}
 	});
 
-	it("allows when balance is zero", () => {
+	it("blocks when balance is zero with existing exposure (HARD-21)", () => {
 		const guard = ExposureGuard.fromPct(50);
 		const ctx = makeCtx({ exposure: "200", balance: "0" });
+		const result = guard.check(ctx);
+		expect(result.type).toBe("block");
+		if (result.type === "block") {
+			expect(result.reason).toContain("zero balance");
+		}
+	});
+
+	it("allows when balance and exposure are both zero", () => {
+		const guard = ExposureGuard.fromPct(50);
+		const ctx = makeCtx({ exposure: "0", balance: "0" });
 		expect(guard.check(ctx).type).toBe("allow");
 	});
 });

@@ -179,7 +179,7 @@ describe("StrategyStats", () => {
 	});
 
 	describe("Breakeven trade", () => {
-		it("does not count breakeven as win or loss", () => {
+		it("includes breakeven trades in winRate denominator", () => {
 			const dispatcher = new EventDispatcher();
 			const stats = new StrategyStats(dispatcher);
 
@@ -191,7 +191,46 @@ describe("StrategyStats", () => {
 			expect(snapshot.tradeCount).toBe(3);
 			expect(snapshot.winCount).toBe(1);
 			expect(snapshot.lossCount).toBe(1);
-			expect(snapshot.winRate).toBe(0.5);
+			// winRate = winCount / tradeCount = 1/3
+			expect(snapshot.winRate).toBeCloseTo(1 / 3, 10);
+		});
+	});
+
+	describe("Max drawdown with fees (HARD-3)", () => {
+		it("uses net equity (totalPnl - totalFees) for drawdown", () => {
+			const dispatcher = new EventDispatcher();
+			const stats = new StrategyStats(dispatcher);
+
+			// Win $10 (fee $5) → net = 10 - 5 = 5 (peak = 5)
+			dispatcher.emitSdk(createPositionClosed(10, 5));
+			// Loss $8 (fee $3) → net = (10-8) - (5+3) = 2 - 8 = -6
+			dispatcher.emitSdk(createPositionClosed(-8, 3));
+
+			const snapshot = stats.snapshot();
+			// peak = 5, net after second trade = -6, drawdown = 5 - (-6) = 11
+			expect(snapshot.maxDrawdown.toNumber()).toBe(11);
+		});
+	});
+
+	describe("Negative fees guard (HARD-4)", () => {
+		it("clamps negative fee to zero", () => {
+			const dispatcher = new EventDispatcher();
+			const stats = new StrategyStats(dispatcher);
+
+			dispatcher.emitSdk(createPositionClosed(100, -5));
+
+			const snapshot = stats.snapshot();
+			expect(snapshot.totalFees.toNumber()).toBe(0);
+		});
+
+		it("allows positive fees through", () => {
+			const dispatcher = new EventDispatcher();
+			const stats = new StrategyStats(dispatcher);
+
+			dispatcher.emitSdk(createPositionClosed(100, 3));
+
+			const snapshot = stats.snapshot();
+			expect(snapshot.totalFees.toNumber()).toBe(3);
 		});
 	});
 

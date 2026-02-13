@@ -157,6 +157,21 @@ describe("orderbook", () => {
 		});
 	});
 
+	describe("crossed book", () => {
+		it("spread returns negative when bestBid > bestAsk", () => {
+			const book: OrderbookSnapshot = {
+				bids: [level("0.55", "100")],
+				asks: [level("0.50", "100")],
+				timestampMs: 0,
+			};
+
+			const result = spread(book);
+			expect(result).not.toBeNull();
+			expect(result?.isNegative()).toBe(true);
+			expect(result?.toString()).toBe("-0.05");
+		});
+	});
+
 	describe("effectivePrice", () => {
 		it("for buy walks asks up to requested size", () => {
 			const book: OrderbookSnapshot = {

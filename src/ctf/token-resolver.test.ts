@@ -176,6 +176,26 @@ describe("CachingTokenResolver", () => {
 		expect(read).toHaveBeenCalledTimes(2);
 	});
 
+	it("coalesces concurrent requests for the same conditionId (HARD-14)", async () => {
+		const reader = makeReader();
+		const resolver = new CachingTokenResolver({ reader, ttl: 5000, maxSize: 10 });
+		const cid = conditionId("condition-1");
+
+		const results = await Promise.all([
+			resolver.resolve(cid),
+			resolver.resolve(cid),
+			resolver.resolve(cid),
+		]);
+
+		expect(reader.read).toHaveBeenCalledTimes(1);
+		for (const result of results) {
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) {
+				expect(result.value.yesTokenId).toBe(marketTokenId("yes-token-1"));
+			}
+		}
+	});
+
 	it("passes correct function name and args to ContractReader", async () => {
 		// Arrange
 		const reader = makeReader();

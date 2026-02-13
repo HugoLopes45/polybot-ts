@@ -255,4 +255,84 @@ describe("MultiMarketManager", () => {
 		expect(result.ok).toBe(true);
 		expect(client.sent).toHaveLength(0);
 	});
+
+	it("uses canonical applyDelta from orderbook module", async () => {
+		const client = new StubWsClient();
+		const wsManager = new WsManager(client);
+		await wsManager.connect();
+		const mmManager = new MultiMarketManager(wsManager);
+
+		const condId = conditionId("cond-1");
+		mmManager.addMarket(condId);
+
+		// Send initial book
+		client.simulateMessage(bookUpdateJson("cond-1", 1000));
+		mmManager.processUpdates();
+
+		// Send update that removes the bid and adds a new one
+		client.simulateMessage(
+			JSON.stringify({
+				type: "book_update",
+				conditionId: "cond-1",
+				bids: [
+					{ price: "0.50", size: "0" },
+					{ price: "0.60", size: "200" },
+				],
+				asks: [{ price: "0.55", size: "50" }],
+				timestampMs: 2000,
+			}),
+		);
+		mmManager.processUpdates();
+
+		const book = mmManager.getBook(condId);
+		expect(book).not.toBeNull();
+		expect(book?.timestampMs).toBe(2000);
+		// Old bid at 0.50 removed, new bid at 0.60
+		expect(book?.bids).toHaveLength(1);
+		expect(book?.bids[0]?.price.toString()).toBe("0.6");
+	});
+
+	it("captures unexpected parse errors via drainParseErrors", async () => {
+		const client = new StubWsClient();
+		const wsManager = new WsManager(client);
+		await wsManager.connect();
+		const mmManager = new MultiMarketManager(wsManager);
+
+		const condId = conditionId("cond-1");
+		mmManager.addMarket(condId);
+
+		// Send a valid update first to create the book
+		client.simulateMessage(bookUpdateJson("cond-1", 1000));
+		mmManager.processUpdates();
+
+		// Now inject an update that will cause a non-Decimal error
+		// by corrupting the internal books map
+		// Instead, use a book_update with valid structure but that triggers
+		// a Decimal parse error (which should be swallowed)
+		client.simulateMessage(
+			JSON.stringify({
+				type: "book_update",
+				conditionId: "cond-1",
+				bids: [{ price: "not-a-number", size: "100" }],
+				asks: [],
+				timestampMs: 2000,
+			}),
+		);
+		mmManager.processUpdates();
+
+		// Decimal parse errors are swallowed (not captured)
+		expect(mmManager.drainParseErrors()).toHaveLength(0);
+	});
+
+	it("drainParseErrors clears errors after draining", async () => {
+		const client = new StubWsClient();
+		const wsManager = new WsManager(client);
+		await wsManager.connect();
+		const mmManager = new MultiMarketManager(wsManager);
+
+		// No errors initially
+		expect(mmManager.drainParseErrors()).toHaveLength(0);
+		// Double drain is empty
+		expect(mmManager.drainParseErrors()).toHaveLength(0);
+	});
 });

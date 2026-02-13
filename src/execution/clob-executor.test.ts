@@ -160,6 +160,23 @@ describe("ClobExecutor", () => {
 			}
 		});
 
+		it("removes from activeOrders after successful cancel (BUG-5)", async () => {
+			const { executor } = makeExecutor();
+
+			const submitResult = await executor.submit(testIntent());
+			expect(isOk(submitResult)).toBe(true);
+			if (!submitResult.ok) return;
+
+			const firstCancel = await executor.cancel(submitResult.value.clientOrderId);
+			expect(isOk(firstCancel)).toBe(true);
+
+			const secondCancel = await executor.cancel(submitResult.value.clientOrderId);
+			expect(isErr(secondCancel)).toBe(true);
+			if (!secondCancel.ok) {
+				expect(secondCancel.error).toBeInstanceOf(OrderNotFoundError);
+			}
+		});
+
 		it("returns OrderNotFoundError for unknown orderId instead of sending garbage (BUG-3)", async () => {
 			const { executor } = makeExecutor();
 			const result = await executor.cancel(

@@ -52,6 +52,20 @@ describe("FeeModel", () => {
 		});
 	});
 
+	describe("float division precision (BUG-7)", () => {
+		it("fixedNotionalFee(3) on $1M notional is exactly $300", () => {
+			const model = fixedNotionalFee(3);
+			const fee = computeFee(model, d("1000000"), d("0"));
+			expect(fee.eq(d("300"))).toBe(true);
+		});
+
+		it("profitBasedFee(7) on $1000 pnl is exactly $70", () => {
+			const model = profitBasedFee(7);
+			const fee = computeFee(model, d("0"), d("1000"));
+			expect(fee.eq(d("70"))).toBe(true);
+		});
+	});
+
 	describe("profitBasedFee rounding (HARD-8)", () => {
 		it("handles very small pnl values", () => {
 			const model = profitBasedFee(33);

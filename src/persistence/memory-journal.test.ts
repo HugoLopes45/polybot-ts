@@ -174,6 +174,40 @@ describe("MemoryJournal", () => {
 		expect(journal.entries()).toHaveLength(1);
 	});
 
+	describe("maxEntries (HARD-13)", () => {
+		it("evicts oldest entries when limit exceeded", async () => {
+			const journal = new MemoryJournal({ maxEntries: 3 });
+
+			await journal.record(makeGuardBlocked("g1", 1));
+			await journal.record(makeGuardBlocked("g2", 2));
+			await journal.record(makeGuardBlocked("g3", 3));
+			await journal.record(makeGuardBlocked("g4", 4));
+			await journal.record(makeGuardBlocked("g5", 5));
+
+			expect(journal.size).toBe(3);
+			const entries = journal.entries();
+			expect((entries[0] as { guardName: string }).guardName).toBe("g3");
+			expect((entries[1] as { guardName: string }).guardName).toBe("g4");
+			expect((entries[2] as { guardName: string }).guardName).toBe("g5");
+		});
+
+		it("defaults to unlimited entries when no config", async () => {
+			const journal = new MemoryJournal();
+			for (let i = 0; i < 100; i++) {
+				await journal.record(makeGuardBlocked("g", i));
+			}
+			expect(journal.size).toBe(100);
+		});
+
+		it("maxEntries=1 keeps only the latest", async () => {
+			const journal = new MemoryJournal({ maxEntries: 1 });
+			await journal.record(makeGuardBlocked("first", 1));
+			await journal.record(makeGuardBlocked("second", 2));
+			expect(journal.size).toBe(1);
+			expect((journal.entries()[0] as { guardName: string }).guardName).toBe("second");
+		});
+	});
+
 	it("works with all JournalEntry variants", async () => {
 		const journal = new MemoryJournal();
 		const variants: JournalEntry[] = [

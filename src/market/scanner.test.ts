@@ -91,4 +91,31 @@ describe("scan", () => {
 
 		expect(results).toHaveLength(0);
 	});
+
+	it("score is finite when spread approaches zero", () => {
+		const market = makeMarket("m1");
+		// Very tight spread: 0.0000001
+		const book = makeBook([level("0.50000000", "100")], [level("0.50000010", "100")]);
+		const oracle = new Map([["m1", Decimal.from("0.55")]]);
+		const books = new Map([["m1", book]]);
+
+		const results = scan([market], books, oracle);
+
+		expect(results).toHaveLength(1);
+		expect(Number.isFinite(results[0]?.score)).toBe(true);
+		expect(results[0]?.score).toBeGreaterThanOrEqual(0);
+	});
+
+	it("score is zero when spread is exactly zero", () => {
+		const market = makeMarket("m1");
+		// Identical bid and ask = zero spread
+		const book = makeBook([level("0.50", "100")], [level("0.50", "100")]);
+		const oracle = new Map([["m1", Decimal.from("0.55")]]);
+		const books = new Map([["m1", book]]);
+
+		const results = scan([market], books, oracle);
+
+		expect(results).toHaveLength(1);
+		expect(results[0]?.score).toBe(0);
+	});
 });

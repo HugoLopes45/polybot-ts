@@ -181,6 +181,137 @@ describe("WsManager", () => {
 		expect(manager.drain()).toHaveLength(0);
 	});
 
+	it("book_update with invalid bid elements is rejected", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		client.simulateMessage(
+			JSON.stringify({
+				type: "book_update",
+				conditionId: "cond-1",
+				bids: [42],
+				asks: [],
+				timestampMs: 1000,
+			}),
+		);
+		expect(manager.drain()).toHaveLength(0);
+	});
+
+	it("book_update with bid missing size field is rejected", async () => {
+		const client = new StubWsClient();
+		const manager = new WsManager(client);
+		await manager.connect();
+
+		client.simulateMessage(
+			JSON.stringify({
+				type: "book_update",
+				conditionId: "cond-1",
+				bids: [{ price: "0.50" }],
+				asks: [],
+				timestampMs: 1000,
+			}),
+		);
+		expect(manager.drain()).toHaveLength(0);
+	});
+
+	describe("subscription key collision", () => {
+		it("multiple assets on same channel are all preserved", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client);
+			await manager.connect();
+
+			manager.subscribe({ channel: "book", assets: ["cond-1"] });
+			manager.subscribe({ channel: "book", assets: ["cond-2"] });
+			manager.subscribe({ channel: "book", assets: ["cond-3"] });
+			client.sent.length = 0;
+
+			await manager.reconnect();
+
+			// All 3 subscriptions should be replayed
+			expect(client.sent).toHaveLength(3);
+			const assets = client.sent.map((s) => JSON.parse(s).assets);
+			expect(assets).toContainEqual(["cond-1"]);
+			expect(assets).toContainEqual(["cond-2"]);
+			expect(assets).toContainEqual(["cond-3"]);
+		});
+
+		it("unsubscribe removes all entries for a channel", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client);
+			await manager.connect();
+
+			manager.subscribe({ channel: "book", assets: ["cond-1"] });
+			manager.subscribe({ channel: "book", assets: ["cond-2"] });
+			manager.unsubscribe("book");
+			client.sent.length = 0;
+
+			await manager.reconnect();
+
+			// No subscriptions should be replayed
+			expect(client.sent).toHaveLength(0);
+		});
+	});
+
+	describe("replay errors", () => {
+		it("surfaces send failures during reconnect replay", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client);
+			await manager.connect();
+
+			manager.subscribe({ channel: "book", assets: ["cond-1"] });
+
+			// Override send to always fail — replay uses this
+			client.send = () => err(new NetworkError("send failed"));
+
+			await manager.reconnect();
+
+			expect(manager.replayErrors).toHaveLength(1);
+			expect(manager.replayErrors[0]?.message).toBe("send failed");
+		});
+
+		it("replay errors are empty when all sends succeed", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client);
+			await manager.connect();
+
+			manager.subscribe({ channel: "book", assets: ["cond-1"] });
+			await manager.reconnect();
+
+			expect(manager.replayErrors).toHaveLength(0);
+		});
+	});
+
+	describe("maxBufferSize", () => {
+		it("drops oldest messages when buffer exceeds maxBufferSize", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client, { maxBufferSize: 10 });
+			await manager.connect();
+
+			for (let i = 0; i < 100; i++) {
+				client.simulateMessage(bookUpdateJson(1000 + i));
+			}
+
+			const messages = manager.drain();
+			expect(messages).toHaveLength(10);
+			// Should contain the 10 most recent messages (timestamps 1090-1099)
+			expect((messages[0] as { timestampMs: number }).timestampMs).toBe(1090);
+			expect((messages[9] as { timestampMs: number }).timestampMs).toBe(1099);
+		});
+
+		it("no limit when maxBufferSize is not configured", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client);
+			await manager.connect();
+
+			for (let i = 0; i < 50; i++) {
+				client.simulateMessage(bookUpdateJson(1000 + i));
+			}
+
+			expect(manager.drain()).toHaveLength(50);
+		});
+	});
+
 	describe("heartbeat", () => {
 		it("fresh connection is healthy", async () => {
 			const client = new StubWsClient();
