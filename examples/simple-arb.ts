@@ -13,7 +13,7 @@ import {
 	type SignalDetector,
 	StrategyBuilder,
 	marketTokenId,
-} from "../src/index.js";
+} from "@polybot/sdk";
 
 // ── Signal: buy YES when market price < oracle price by > 3 cents ────
 

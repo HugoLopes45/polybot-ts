@@ -1,0 +1,14 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"outDir": "dist-examples",
+		"declaration": false,
+		"declarationMap": false,
+		"paths": {
+			"@polybot/sdk": ["./src/index.ts"]
+		},
+		"noEmit": true
+	},
+	"include": ["src", "examples"]
+}

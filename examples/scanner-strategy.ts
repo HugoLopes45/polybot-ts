@@ -16,7 +16,7 @@ import {
 	StrategyBuilder,
 	marketTokenId,
 	scan,
-} from "../src/index.js";
+} from "@polybot/sdk";
 
 // ── Scanner: find markets with best edge/spread ratio ───────────────
 

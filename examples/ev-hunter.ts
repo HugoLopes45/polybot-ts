@@ -14,7 +14,7 @@ import {
 	type SignalDetector,
 	evHunter,
 	marketTokenId,
-} from "../src/index.js";
+} from "@polybot/sdk";
 
 // ── EV signal detector ──────────────────────────────────────────────
 

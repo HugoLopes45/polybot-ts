@@ -15,7 +15,7 @@ import {
 	type SignalDetector,
 	conservative,
 	marketTokenId,
-} from "../src/index.js";
+} from "@polybot/sdk";
 
 // ── Market-making signal: place order at midpoint ───────────────────
 
