@@ -46,10 +46,10 @@ export function computeFee(model: FeeModel, notional: Decimal, pnl: Decimal): De
 		case "none":
 			return Decimal.zero();
 		case "fixed_notional":
-			return notional.abs().mul(Decimal.from(model.bps / 10_000));
+			return notional.abs().mul(Decimal.from(model.bps).div(Decimal.from(10_000)));
 		case "profit_based": {
 			if (pnl.isNegative() || pnl.isZero()) return Decimal.zero();
-			return pnl.mul(Decimal.from(model.pct / 100));
+			return pnl.mul(Decimal.from(model.pct).div(Decimal.from(100)));
 		}
 	}
 }

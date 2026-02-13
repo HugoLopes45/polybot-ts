@@ -90,9 +90,10 @@ export class FileJournal implements Journal {
 		return { entries, corruptLines };
 	}
 
-	/** Marks the journal as closed, rejecting subsequent writes. */
+	/** Marks the journal as closed, draining any pending writes first. */
 	async close(): Promise<void> {
 		this.closed = true;
+		await this.writeQueue.catch(() => {});
 	}
 
 	private async writeOnce(line: string): Promise<void> {

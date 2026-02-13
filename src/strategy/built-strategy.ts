@@ -14,7 +14,7 @@ import type { ConnectivityWatchdog } from "../lifecycle/watchdog.js";
 import type { PositionManager } from "../position/position-manager.js";
 import type { SdkPosition } from "../position/sdk-position.js";
 import type { GuardPipeline } from "../risk/guard-pipeline.js";
-import type { GuardContext } from "../risk/types.js";
+import type { GuardContext, GuardVerdict } from "../risk/types.js";
 import type { TradingError } from "../shared/errors.js";
 import { isErr } from "../shared/result.js";
 import type { Clock } from "../shared/time.js";
@@ -105,6 +105,7 @@ export class BuiltStrategy {
 		this.tickInProgress = true;
 
 		try {
+			const dataStale = this.watchdog.shouldBlockEntries();
 			this.watchdog.touch();
 			this.advanceLifecycle();
 
@@ -122,7 +123,32 @@ export class BuiltStrategy {
 				return;
 			}
 
-			const guardVerdict = this.guardPipeline.evaluate(ctx);
+			if (dataStale) {
+				this.eventDispatcher.emitSdk({
+					type: "error_occurred",
+					timestamp: this.clock.now(),
+					code: "WATCHDOG_ALERT",
+					message: "Data feed stale, blocking entries",
+					category: "non_retryable",
+				});
+				return;
+			}
+
+			let guardVerdict: GuardVerdict;
+			try {
+				guardVerdict = this.guardPipeline.evaluate(ctx);
+			} catch (e: unknown) {
+				const detail = e instanceof Error ? e.message : String(e);
+				this.eventDispatcher.emitSdk({
+					type: "error_occurred",
+					timestamp: this.clock.now(),
+					code: "GUARD_THREW",
+					message: `Guard pipeline threw: ${detail}`,
+					category: "fatal",
+				});
+				return;
+			}
+
 			if (guardVerdict.type === "block") {
 				this.eventDispatcher.emitSdk({
 					type: "guard_blocked",
@@ -207,139 +233,194 @@ export class BuiltStrategy {
 	private async processExits(ctx: TickContext): Promise<void> {
 		const positions = this.positionManager.allOpen();
 		for (const position of positions) {
-			const exitReason = this.exitPipeline.evaluate(position, ctx);
-			if (!exitReason) {
-				continue;
+			try {
+				const exitReason = this.exitPipeline.evaluate(position, ctx);
+				if (!exitReason) {
+					continue;
+				}
+
+				await this.safeJournal({
+					type: "exit_signal",
+					conditionId: position.conditionId,
+					reason: exitReason,
+					timestamp: this.clock.now(),
+				});
+
+				const intent = this.buildSellIntent(position, ctx);
+				const result = await this.executor.submit(intent);
+
+				if (isErr(result)) {
+					await this.emitExecutionError("exit_submit_failed", result.error, position.conditionId);
+					continue;
+				}
+
+				const orderResult = result.value;
+				const exitPrice = orderResult.avgFillPrice ?? intent.price;
+				const closeResult = this.positionManager.close(
+					position.conditionId,
+					exitPrice,
+					this.clock.now(),
+				);
+
+				if (!closeResult) {
+					this.emitError("POSITION_CLOSE_FAILED", "Position close returned null after fill");
+					continue;
+				}
+
+				this.positionManager = closeResult.manager;
+				const fee = computeFee(this.feeModel, position.notional(), closeResult.pnl);
+
+				this.eventDispatcher.emitSdk({
+					type: "order_placed",
+					timestamp: this.clock.now(),
+					clientOrderId: orderResult.clientOrderId,
+					conditionId: intent.conditionId,
+					tokenId: intent.tokenId,
+					side: intent.side,
+					price: intent.price.toNumber(),
+					size: intent.size.toNumber(),
+				});
+
+				this.eventDispatcher.emitSdk({
+					type: "position_closed",
+					timestamp: this.clock.now(),
+					conditionId: position.conditionId,
+					tokenId: position.tokenId,
+					entryPrice: position.entryPrice.toNumber(),
+					exitPrice: exitPrice.toNumber(),
+					pnl: closeResult.pnl.toNumber(),
+					reason: exitReason.type,
+					fee: fee.toNumber(),
+				});
+
+				await this.safeJournal({
+					type: "position_closed",
+					conditionId: position.conditionId,
+					entryPrice: position.entryPrice.toNumber(),
+					exitPrice: exitPrice.toNumber(),
+					pnl: closeResult.pnl.toNumber(),
+					reason: exitReason.type,
+					fee: fee.toNumber(),
+					timestamp: this.clock.now(),
+				});
+			} catch (e: unknown) {
+				const detail = e instanceof Error ? e.message : String(e);
+				this.eventDispatcher.emitSdk({
+					type: "error_occurred",
+					timestamp: this.clock.now(),
+					code: "EXIT_PIPELINE_THREW",
+					message: `Exit pipeline threw for ${position.conditionId}: ${detail}`,
+					category: "non_retryable",
+				});
 			}
-
-			const intent = this.buildSellIntent(position, ctx);
-			const result = await this.executor.submit(intent);
-
-			if (isErr(result)) {
-				await this.emitExecutionError("exit_submit_failed", result.error, position.conditionId);
-				continue;
-			}
-
-			const orderResult = result.value;
-			const exitPrice = orderResult.avgFillPrice ?? intent.price;
-			const closeResult = this.positionManager.close(
-				position.conditionId,
-				exitPrice,
-				this.clock.now(),
-			);
-
-			if (!closeResult) {
-				this.emitError("POSITION_CLOSE_FAILED", "Position close returned null after fill");
-				continue;
-			}
-
-			this.positionManager = closeResult.manager;
-			const fee = computeFee(this.feeModel, position.notional(), closeResult.pnl);
-
-			this.eventDispatcher.emitSdk({
-				type: "position_closed",
-				timestamp: this.clock.now(),
-				conditionId: position.conditionId,
-				tokenId: position.tokenId,
-				entryPrice: position.entryPrice.toNumber(),
-				exitPrice: exitPrice.toNumber(),
-				pnl: closeResult.pnl.toNumber(),
-				reason: exitReason.type,
-				fee: fee.toNumber(),
-			});
-
-			await this.safeJournal({
-				type: "position_closed",
-				conditionId: position.conditionId,
-				entryPrice: position.entryPrice.toNumber(),
-				exitPrice: exitPrice.toNumber(),
-				pnl: closeResult.pnl.toNumber(),
-				reason: exitReason.type,
-				fee: fee.toNumber(),
-				timestamp: this.clock.now(),
-			});
 		}
 	}
 
 	private async processEntry(ctx: TickContext): Promise<void> {
-		const signal = this.detector.detectEntry(ctx);
-		if (!signal) {
-			return;
-		}
+		try {
+			const signal = this.detector.detectEntry(ctx);
+			if (!signal) {
+				return;
+			}
 
-		const intent = this.detector.toOrder(signal, ctx);
-		const result = await this.executor.submit(intent);
+			const intent = this.detector.toOrder(signal, ctx);
 
-		if (isErr(result)) {
-			await this.emitExecutionError("entry_submit_failed", result.error, intent.conditionId);
-			return;
-		}
+			if (intent.size.isZero() || intent.size.isNegative()) {
+				this.emitError(
+					"INVALID_INTENT",
+					`Detector returned invalid size: ${intent.size.toString()}`,
+				);
+				return;
+			}
+			if (intent.price.isZero() || intent.price.isNegative()) {
+				this.emitError(
+					"INVALID_INTENT",
+					`Detector returned invalid price: ${intent.price.toString()}`,
+				);
+				return;
+			}
 
-		const orderResult = result.value;
-		const entryPrice = orderResult.avgFillPrice ?? intent.price;
+			const result = await this.executor.submit(intent);
 
-		const openResult = this.positionManager.open(
-			intent.conditionId,
-			intent.tokenId,
-			intent.side,
-			entryPrice,
-			intent.size,
-			this.clock.now(),
-		);
+			if (isErr(result)) {
+				await this.emitExecutionError("entry_submit_failed", result.error, intent.conditionId);
+				return;
+			}
 
-		if (isErr(openResult)) {
-			// Real fill happened but position tracking failed — critical state desync
-			this.emitError(
-				"POSITION_OPEN_FAILED",
-				`Position open failed after fill: ${openResult.error}`,
+			const orderResult = result.value;
+			const entryPrice = orderResult.avgFillPrice ?? intent.price;
+
+			const openResult = this.positionManager.open(
+				intent.conditionId,
+				intent.tokenId,
+				intent.side,
+				entryPrice,
+				intent.size,
+				this.clock.now(),
 			);
-			return;
+
+			if (isErr(openResult)) {
+				this.emitError(
+					"POSITION_OPEN_FAILED",
+					`Position open failed after fill: ${openResult.error}`,
+				);
+				return;
+			}
+
+			this.positionManager = openResult.value;
+
+			this.eventDispatcher.emitSdk({
+				type: "order_placed",
+				timestamp: this.clock.now(),
+				clientOrderId: orderResult.clientOrderId,
+				conditionId: intent.conditionId,
+				tokenId: intent.tokenId,
+				side: intent.side,
+				price: intent.price.toNumber(),
+				size: intent.size.toNumber(),
+			});
+
+			this.eventDispatcher.emitSdk({
+				type: "position_opened",
+				timestamp: this.clock.now(),
+				conditionId: intent.conditionId,
+				tokenId: intent.tokenId,
+				side: intent.side,
+				entryPrice: entryPrice.toNumber(),
+				size: intent.size.toNumber(),
+			});
+
+			await this.safeJournal({
+				type: "entry_signal",
+				signal,
+				intent,
+				timestamp: this.clock.now(),
+			});
+			await this.safeJournal({
+				type: "order_submitted",
+				intent,
+				clientOrderId: orderResult.clientOrderId,
+				timestamp: this.clock.now(),
+			});
+			await this.safeJournal({
+				type: "position_opened",
+				conditionId: intent.conditionId,
+				tokenId: intent.tokenId,
+				side: intent.side,
+				entryPrice: entryPrice.toNumber(),
+				size: intent.size.toNumber(),
+				timestamp: this.clock.now(),
+			});
+		} catch (e: unknown) {
+			const detail = e instanceof Error ? e.message : String(e);
+			this.eventDispatcher.emitSdk({
+				type: "error_occurred",
+				timestamp: this.clock.now(),
+				code: "DETECTOR_THREW",
+				message: `Detector threw: ${detail}`,
+				category: "non_retryable",
+			});
 		}
-
-		this.positionManager = openResult.value;
-
-		this.eventDispatcher.emitSdk({
-			type: "position_opened",
-			timestamp: this.clock.now(),
-			conditionId: intent.conditionId,
-			tokenId: intent.tokenId,
-			side: intent.side,
-			entryPrice: entryPrice.toNumber(),
-			size: intent.size.toNumber(),
-		});
-
-		this.eventDispatcher.emitSdk({
-			type: "order_placed",
-			timestamp: this.clock.now(),
-			clientOrderId: orderResult.clientOrderId,
-			conditionId: intent.conditionId,
-			tokenId: intent.tokenId,
-			side: intent.side,
-			price: intent.price.toNumber(),
-			size: intent.size.toNumber(),
-		});
-
-		await this.safeJournal({
-			type: "entry_signal",
-			signal,
-			intent,
-			timestamp: this.clock.now(),
-		});
-		await this.safeJournal({
-			type: "order_submitted",
-			intent,
-			clientOrderId: orderResult.clientOrderId,
-			timestamp: this.clock.now(),
-		});
-		await this.safeJournal({
-			type: "position_opened",
-			conditionId: intent.conditionId,
-			tokenId: intent.tokenId,
-			side: intent.side,
-			entryPrice: entryPrice.toNumber(),
-			size: intent.size.toNumber(),
-			timestamp: this.clock.now(),
-		});
 	}
 
 	private buildSellIntent(position: SdkPosition, ctx: TickContext): SdkOrderIntent {

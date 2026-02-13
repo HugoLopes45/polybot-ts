@@ -8,6 +8,7 @@ import type { Subscription, WsMessage } from "./types.js";
 /** Configuration for the WebSocket connection manager. */
 export interface WsManagerConfig {
 	heartbeatTimeoutMs?: number;
+	maxBufferSize?: number;
 	clock?: Clock;
 }
 
@@ -37,18 +38,26 @@ export class WsManager {
 	private buffer: WsMessage[] = [];
 	private _generation = 0;
 	private readonly heartbeatTimeoutMs: number;
+	private readonly maxBufferSize: number;
 	private readonly clock: Clock;
 	private lastMessageAtMs: number | null = null;
+	private _replayErrors: TradingError[] = [];
 
 	constructor(client: WsClientLike, config: WsManagerConfig = {}) {
 		this.client = client;
 		this.heartbeatTimeoutMs = config.heartbeatTimeoutMs ?? -1;
+		this.maxBufferSize = config.maxBufferSize ?? -1;
 		this.clock = config.clock ?? SystemClock;
 		this.client.onMessage((data) => this.handleMessage(data));
 	}
 
 	get generation(): number {
 		return this._generation;
+	}
+
+	/** Returns errors from the most recent subscription replay (reconnect). */
+	get replayErrors(): readonly TradingError[] {
+		return this._replayErrors;
 	}
 
 	/** Returns true if no message has been received within the heartbeat timeout. */
@@ -78,7 +87,8 @@ export class WsManager {
 	 * @param sub - The subscription to register
 	 */
 	subscribe(sub: Subscription): Result<void, TradingError> {
-		this.subscriptions.set(sub.channel, sub);
+		const key = subscriptionKey(sub);
+		this.subscriptions.set(key, sub);
 		return this.client.send(
 			JSON.stringify({ action: "subscribe", channel: sub.channel, assets: sub.assets }),
 		);
@@ -86,10 +96,15 @@ export class WsManager {
 
 	/**
 	 * Unsubscribes from a WebSocket channel.
+	 * Removes all subscriptions with the given channel prefix.
 	 * @param channel - The channel name to unsubscribe from
 	 */
 	unsubscribe(channel: string): Result<void, TradingError> {
-		this.subscriptions.delete(channel);
+		for (const [key] of this.subscriptions) {
+			if (key.startsWith(`${channel}:`)) {
+				this.subscriptions.delete(key);
+			}
+		}
 		return this.client.send(JSON.stringify({ action: "unsubscribe", channel }));
 	}
 
@@ -107,28 +122,40 @@ export class WsManager {
 		this.lastMessageAtMs = this.clock.now();
 		await this.client.connect();
 		this._generation += 1;
-		this.replaySubscriptions();
+		this._replayErrors = this.collectReplayErrors();
 	}
 
 	private handleMessage(data: string): void {
 		const parsed = parseMessage(data);
 		if (parsed !== null) {
 			this.buffer.push(parsed);
+			if (this.maxBufferSize > 0 && this.buffer.length > this.maxBufferSize) {
+				this.buffer.shift();
+			}
 		}
 		this.lastMessageAtMs = this.clock.now();
 	}
 
-	private replaySubscriptions(): void {
+	private collectReplayErrors(): TradingError[] {
+		const errors: TradingError[] = [];
 		for (const sub of this.subscriptions.values()) {
-			this.client.send(
+			const result = this.client.send(
 				JSON.stringify({
 					action: "subscribe",
 					channel: sub.channel,
 					assets: sub.assets,
 				}),
 			);
+			if (!result.ok) {
+				errors.push(result.error);
+			}
 		}
+		return errors;
 	}
+}
+
+function subscriptionKey(sub: Subscription): string {
+	return `${sub.channel}:${sub.assets.join(",")}`;
 }
 
 function parseMessage(data: string): WsMessage | null {
@@ -165,7 +192,24 @@ function isBookUpdate(raw: RawMsg): boolean {
 		typeof raw.conditionId === "string" &&
 		Array.isArray(raw.bids) &&
 		Array.isArray(raw.asks) &&
-		typeof raw.timestampMs === "number"
+		typeof raw.timestampMs === "number" &&
+		isValidLevelArray(raw.bids) &&
+		isValidLevelArray(raw.asks)
+	);
+}
+
+interface LevelShape {
+	price: unknown;
+	size: unknown;
+}
+
+function isValidLevelArray(arr: unknown[]): boolean {
+	return arr.every(
+		(el) =>
+			typeof el === "object" &&
+			el !== null &&
+			typeof (el as LevelShape).price === "string" &&
+			typeof (el as LevelShape).size === "string",
 	);
 }
 

@@ -69,7 +69,11 @@ export class ClobExecutor implements Executor {
 		const rawId = orderId as string;
 		const exchangeId = this.activeOrders.get(rawId);
 		if (exchangeId) {
-			return this.clobClient.cancelOrder(exchangeId);
+			const result = await this.clobClient.cancelOrder(exchangeId);
+			if (result.ok) {
+				this.activeOrders.delete(rawId);
+			}
+			return result;
 		}
 		return err(
 			new OrderNotFoundError(`Cannot cancel unknown order "${rawId}": not found in active orders`, {

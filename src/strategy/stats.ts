@@ -43,7 +43,8 @@ export class StrategyStats {
 		}
 
 		const pnl = Decimal.from(event.pnl);
-		const fee = event.fee !== undefined ? Decimal.from(event.fee) : Decimal.zero();
+		const rawFee = event.fee !== undefined ? Decimal.from(event.fee) : Decimal.zero();
+		const fee = rawFee.isNegative() ? Decimal.zero() : rawFee;
 
 		this.tradeCount++;
 
@@ -56,10 +57,11 @@ export class StrategyStats {
 			this.lossCount++;
 		}
 
-		if (this.totalPnl.gt(this.peakEquity)) {
-			this.peakEquity = this.totalPnl;
+		const netEquity = this.totalPnl.sub(this.totalFees);
+		if (netEquity.gt(this.peakEquity)) {
+			this.peakEquity = netEquity;
 		} else {
-			const currentDrawdown = this.peakEquity.sub(this.totalPnl);
+			const currentDrawdown = this.peakEquity.sub(netEquity);
 			if (currentDrawdown.gt(this.maxDrawdown)) {
 				this.maxDrawdown = currentDrawdown;
 			}
@@ -79,8 +81,7 @@ export class StrategyStats {
 	}
 
 	snapshot(): StatsSnapshot {
-		const winRate =
-			this.winCount + this.lossCount > 0 ? this.winCount / (this.winCount + this.lossCount) : 0;
+		const winRate = this.tradeCount > 0 ? this.winCount / this.tradeCount : 0;
 		const avgPnl =
 			this.tradeCount > 0 ? this.totalPnl.div(Decimal.from(this.tradeCount)) : Decimal.zero();
 

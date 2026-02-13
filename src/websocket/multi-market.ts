@@ -1,4 +1,5 @@
-import type { OrderbookLevel, OrderbookSnapshot } from "../market/types.js";
+import { applyDelta as canonicalApplyDelta } from "../market/orderbook.js";
+import type { OrderbookSnapshot } from "../market/types.js";
 import { Decimal } from "../shared/decimal.js";
 import type { TradingError } from "../shared/errors.js";
 import type { ConditionId } from "../shared/identifiers.js";
@@ -10,6 +11,7 @@ import type { WsManager } from "./ws-manager.js";
 export class MultiMarketManager {
 	private readonly books: Map<ConditionId, OrderbookSnapshot> = new Map();
 	private readonly markets: Set<ConditionId> = new Set();
+	private readonly _parseErrors: Error[] = [];
 
 	constructor(private readonly wsManager: WsManager) {}
 
@@ -57,10 +59,28 @@ export class MultiMarketManager {
 			const bookUpdate = msg as BookUpdate;
 			try {
 				this.applyBookUpdate(bookUpdate);
-			} catch {
-				// Skip malformed updates — one bad message must not kill the loop
+			} catch (e: unknown) {
+				// Only swallow Decimal parse errors; capture unexpected errors
+				if (
+					e instanceof Error &&
+					(e.message.includes("DecimalError") || e.message.includes("Invalid"))
+				) {
+					continue;
+				}
+				if (e instanceof Error) {
+					if (this._parseErrors.length < 100) {
+						this._parseErrors.push(e);
+					}
+				}
 			}
 		}
+	}
+
+	/** Drains and returns captured parse errors, clearing the internal list. */
+	drainParseErrors(): Error[] {
+		const errors = [...this._parseErrors];
+		this._parseErrors.length = 0;
+		return errors;
 	}
 
 	activeMarkets(): readonly ConditionId[] {
@@ -89,43 +109,8 @@ export class MultiMarketManager {
 			})),
 		};
 
-		const updatedBook = applyDelta(book, delta, update.timestampMs);
+		const applied = canonicalApplyDelta(book, delta);
+		const updatedBook = { ...applied, timestampMs: update.timestampMs };
 		this.books.set(update.conditionId, updatedBook);
 	}
-}
-
-function applyDelta(
-	book: OrderbookSnapshot,
-	delta: { bids: readonly OrderbookLevel[]; asks: readonly OrderbookLevel[] },
-	timestampMs: number,
-): OrderbookSnapshot {
-	const bids = mergeLevels(book.bids, delta.bids, "desc");
-	const asks = mergeLevels(book.asks, delta.asks, "asc");
-	return { bids, asks, timestampMs };
-}
-
-function mergeLevels(
-	existing: readonly OrderbookLevel[],
-	updates: readonly OrderbookLevel[],
-	direction: "asc" | "desc",
-): OrderbookLevel[] {
-	const map = new Map<string, OrderbookLevel>();
-	for (const lvl of existing) {
-		map.set(lvl.price.toString(), lvl);
-	}
-	for (const lvl of updates) {
-		if (lvl.size.isZero()) {
-			map.delete(lvl.price.toString());
-		} else {
-			map.set(lvl.price.toString(), lvl);
-		}
-	}
-	const sorted = [...map.values()];
-	sorted.sort((a, b) => {
-		if (direction === "desc") {
-			return a.price.gt(b.price) ? -1 : a.price.lt(b.price) ? 1 : 0;
-		}
-		return a.price.lt(b.price) ? -1 : a.price.gt(b.price) ? 1 : 0;
-	});
-	return sorted;
 }
