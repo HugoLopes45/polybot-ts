@@ -1,4 +1,6 @@
-import { ErrorCategory, TradingError, classifyError } from "../shared/errors.js";
+import type { Cache } from "../lib/cache/index.js";
+import type { TokenBucketRateLimiter } from "../lib/http/rate-limiter.js";
+import { ErrorCategory, RateLimitError, TradingError, classifyError } from "../shared/errors.js";
 import type { ConditionId } from "../shared/identifiers.js";
 import { type Result, err, ok } from "../shared/result.js";
 import { SystemClock } from "../shared/time.js";
@@ -27,12 +29,24 @@ export class MarketService {
 	private readonly clock: Clock;
 	private readonly cacheTtlMs: number;
 	private readonly cache: Map<string, CacheEntry>;
+	private readonly searchCache: Cache<MarketInfo[]> | undefined;
+	private readonly rateLimiter: TokenBucketRateLimiter | undefined;
 
-	constructor(deps: MarketServiceDeps, config?: { cacheTtlMs?: number; clock?: Clock }) {
+	constructor(
+		deps: MarketServiceDeps,
+		config?: {
+			cacheTtlMs?: number;
+			clock?: Clock;
+			searchCache?: Cache<MarketInfo[]>;
+			rateLimiter?: TokenBucketRateLimiter;
+		},
+	) {
 		this.deps = deps;
 		this.clock = config?.clock ?? SystemClock;
 		this.cacheTtlMs = config?.cacheTtlMs ?? 60_000;
 		this.cache = new Map();
+		this.searchCache = config?.searchCache;
+		this.rateLimiter = config?.rateLimiter;
 	}
 
 	async getMarket(id: ConditionId): Promise<Result<MarketInfo, TradingError>> {
@@ -42,31 +56,62 @@ export class MarketService {
 			return ok(cached.market);
 		}
 
+		let market: MarketInfo | null;
 		try {
-			const market = await this.deps.getMarket(key);
-			if (!market) {
-				return err(
-					new TradingError("Market not found", "MARKET_NOT_FOUND", ErrorCategory.NonRetryable, {
-						conditionId: key,
-					}),
-				);
-			}
+			market = await this.deps.getMarket(key);
+		} catch (error) {
+			return err(classifyError(error));
+		}
+
+		if (!market) {
+			return err(
+				new TradingError("Market not found", "MARKET_NOT_FOUND", ErrorCategory.NonRetryable, {
+					conditionId: key,
+				}),
+			);
+		}
+
+		try {
 			this.cache.set(key, {
 				market,
 				expiresAtMs: this.clock.now() + this.cacheTtlMs,
 			});
-			return ok(market);
-		} catch (error) {
-			return err(classifyError(error));
+		} catch {
+			// Cache write failure must not lose a successful API result
 		}
+		return ok(market);
 	}
 
 	async searchMarkets(query: string): Promise<Result<MarketInfo[], TradingError>> {
+		if (this.searchCache) {
+			const cached = this.searchCache.get(query);
+			if (cached) {
+				return ok(cached);
+			}
+		}
+
+		if (this.rateLimiter && !this.rateLimiter.tryAcquire()) {
+			return err(
+				new RateLimitError("Rate limit exceeded for searchMarkets", 1000, {
+					query,
+				}),
+			);
+		}
+
+		let markets: MarketInfo[];
 		try {
-			const markets = await this.deps.searchMarkets(query);
-			return ok(markets);
+			markets = await this.deps.searchMarkets(query);
 		} catch (error) {
 			return err(classifyError(error));
 		}
+
+		try {
+			if (this.searchCache) {
+				this.searchCache.set(query, markets);
+			}
+		} catch {
+			// Cache write failure must not lose a successful API result
+		}
+		return ok(markets);
 	}
 }

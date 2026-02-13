@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ErrorCategory } from "../shared/errors.js";
+import { Cache } from "../lib/cache/index.js";
+import { TokenBucketRateLimiter } from "../lib/http/rate-limiter.js";
+import { ErrorCategory, RateLimitError } from "../shared/errors.js";
 import { conditionId } from "../shared/identifiers.js";
 import { isErr, isOk } from "../shared/result.js";
 import { FakeClock } from "../shared/time.js";
@@ -129,6 +131,165 @@ describe("MarketService", () => {
 			if (isErr(result)) {
 				expect(result.error.category).toBe(ErrorCategory.Retryable);
 			}
+		});
+
+		describe("with optional cache", () => {
+			it("cache hit returns cached result without calling API", async () => {
+				let callCount = 0;
+				const deps = {
+					getMarket: async () => null,
+					searchMarkets: async () => {
+						callCount++;
+						return [MARKET_A];
+					},
+				};
+				const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
+				const clock = new FakeClock(1000);
+				const service = new MarketService(deps, { clock, searchCache: cache });
+
+				await service.searchMarkets("weather");
+				await service.searchMarkets("weather");
+
+				expect(callCount).toBe(1);
+			});
+
+			it("cache miss calls API and caches result", async () => {
+				let callCount = 0;
+				const deps = {
+					getMarket: async () => null,
+					searchMarkets: async () => {
+						callCount++;
+						return [MARKET_A];
+					},
+				};
+				const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
+				const clock = new FakeClock(1000);
+				const service = new MarketService(deps, { clock, searchCache: cache });
+
+				await service.searchMarkets("weather");
+
+				expect(callCount).toBe(1);
+				expect(cache.get("weather")).toEqual([MARKET_A]);
+			});
+
+			it("different queries are cached separately", async () => {
+				const deps = {
+					getMarket: async () => null,
+					searchMarkets: async (query: string) => {
+						return query === "weather" ? [MARKET_A] : [MARKET_B];
+					},
+				};
+				const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
+				const clock = new FakeClock(1000);
+				const service = new MarketService(deps, { clock, searchCache: cache });
+
+				await service.searchMarkets("weather");
+				await service.searchMarkets("snow");
+
+				expect(cache.get("weather")).toEqual([MARKET_A]);
+				expect(cache.get("snow")).toEqual([MARKET_B]);
+			});
+		});
+
+		describe("with optional rate limiter", () => {
+			it("rate limiter blocks when exhausted", async () => {
+				const deps = {
+					getMarket: async () => null,
+					searchMarkets: async () => [MARKET_A],
+				};
+				const clock = new FakeClock(1000);
+				const rateLimiter = new TokenBucketRateLimiter({
+					capacity: 1,
+					refillRate: 0,
+					clock,
+				});
+				const service = new MarketService(deps, { clock, rateLimiter });
+
+				await service.searchMarkets("weather");
+				const result = await service.searchMarkets("weather");
+
+				expect(isErr(result)).toBe(true);
+				if (isErr(result)) {
+					expect(result.error).toBeInstanceOf(RateLimitError);
+				}
+			});
+
+			it("rate limiter allows when tokens available", async () => {
+				let callCount = 0;
+				const deps = {
+					getMarket: async () => null,
+					searchMarkets: async () => {
+						callCount++;
+						return [MARKET_A];
+					},
+				};
+				const clock = new FakeClock(1000);
+				const rateLimiter = new TokenBucketRateLimiter({
+					capacity: 5,
+					refillRate: 10,
+					clock,
+				});
+				const service = new MarketService(deps, { clock, rateLimiter });
+
+				await service.searchMarkets("weather");
+				await service.searchMarkets("weather");
+
+				expect(callCount).toBe(2);
+			});
+		});
+
+		describe("with cache and rate limiter", () => {
+			it("checks cache first, then rate limiter, then API", async () => {
+				let apiCallCount = 0;
+				const deps = {
+					getMarket: async () => null,
+					searchMarkets: async () => {
+						apiCallCount++;
+						return [MARKET_A];
+					},
+				};
+				const clock = new FakeClock(1000);
+				const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
+				const rateLimiter = new TokenBucketRateLimiter({
+					capacity: 1,
+					refillRate: 0,
+					clock,
+				});
+				const service = new MarketService(deps, { clock, searchCache: cache, rateLimiter });
+
+				await service.searchMarkets("weather");
+				const result = await service.searchMarkets("weather");
+
+				expect(apiCallCount).toBe(1);
+				expect(isOk(result)).toBe(true);
+			});
+
+			it("cache miss triggers rate limiter check before API", async () => {
+				let apiCallCount = 0;
+				const deps = {
+					getMarket: async () => null,
+					searchMarkets: async () => {
+						apiCallCount++;
+						return [MARKET_A];
+					},
+				};
+				const clock = new FakeClock(1000);
+				const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
+				const rateLimiter = new TokenBucketRateLimiter({
+					capacity: 0,
+					refillRate: 0,
+					clock,
+				});
+				const service = new MarketService(deps, { clock, searchCache: cache, rateLimiter });
+
+				const result = await service.searchMarkets("weather");
+
+				expect(apiCallCount).toBe(0);
+				expect(isErr(result)).toBe(true);
+				if (isErr(result)) {
+					expect(result.error).toBeInstanceOf(RateLimitError);
+				}
+			});
 		});
 	});
 });

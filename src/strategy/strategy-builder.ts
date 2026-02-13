@@ -33,6 +33,7 @@ export interface StrategyBuilderDeps {
 	guards?: GuardPipeline | undefined;
 	exits?: ExitPipeline | undefined;
 	detector?: SignalDetector | undefined;
+	warmupTicks?: number | undefined;
 }
 
 /** Fluent, immutable builder for assembling a BuiltStrategy from its components. */
@@ -44,6 +45,7 @@ export class StrategyBuilder {
 	private readonly guards: GuardPipeline | undefined;
 	private readonly exits: ExitPipeline | undefined;
 	private readonly detector: SignalDetector | undefined;
+	private readonly warmupTicks: number | undefined;
 
 	constructor(deps: StrategyBuilderDeps = {}) {
 		this.clock = deps.clock ?? SystemClock;
@@ -53,6 +55,7 @@ export class StrategyBuilder {
 		this.guards = deps.guards;
 		this.exits = deps.exits;
 		this.detector = deps.detector;
+		this.warmupTicks = deps.warmupTicks;
 	}
 
 	static create(deps?: StrategyBuilderDeps): StrategyBuilder {
@@ -85,6 +88,10 @@ export class StrategyBuilder {
 
 	withJournal(journal: Journal): StrategyBuilder {
 		return new StrategyBuilder({ ...this.snapshot(), journal });
+	}
+
+	withWarmupTicks(n: number): StrategyBuilder {
+		return new StrategyBuilder({ ...this.snapshot(), warmupTicks: n });
 	}
 
 	build(): BuiltStrategy {
@@ -120,6 +127,7 @@ export class StrategyBuilder {
 			executor: this.executor ?? this.createDefaultExecutor(),
 			detector: this.detector ?? this.createDefaultDetector(),
 			journal: this.journal,
+			warmupTicks: this.warmupTicks,
 		};
 
 		return new BuiltStrategy(deps);
@@ -157,6 +165,7 @@ export class StrategyBuilder {
 			executor: this.executor,
 			detector: this.detector,
 			journal: this.journal,
+			warmupTicks: this.warmupTicks,
 		};
 
 		return ok(new BuiltStrategy(deps));
@@ -171,6 +180,7 @@ export class StrategyBuilder {
 			guards: this.guards,
 			exits: this.exits,
 			detector: this.detector,
+			warmupTicks: this.warmupTicks,
 		};
 	}
 

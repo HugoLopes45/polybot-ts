@@ -9,6 +9,7 @@ import { computeFee } from "../accounting/fee-model.js";
 import type { FeeModel } from "../accounting/fee-model.js";
 import type { EventDispatcher } from "../events/event-dispatcher.js";
 import type { Executor } from "../execution/types.js";
+import { StrategyState, type StrategyStateMachine } from "../lifecycle/index.js";
 import type { ConnectivityWatchdog } from "../lifecycle/watchdog.js";
 import type { PositionManager } from "../position/position-manager.js";
 import type { SdkPosition } from "../position/sdk-position.js";
@@ -45,6 +46,7 @@ export interface BuiltStrategyDeps {
 	executor: Executor;
 	detector: SignalDetector;
 	journal: Journal | null;
+	warmupTicks?: number | undefined;
 }
 
 /** Minimal view into strategy lifecycle state for the tick loop. */
@@ -59,13 +61,16 @@ export class BuiltStrategy {
 	private positionManager: PositionManager;
 	private readonly guardPipeline: GuardPipeline;
 	private readonly exitPipeline: ExitPipeline;
+	private readonly stateMachine: StrategyStateMachine;
+	private readonly stateView: StateView;
 	private readonly watchdog: ConnectivityWatchdog;
 	private readonly eventDispatcher: EventDispatcher;
 	private readonly feeModel: FeeModel;
 	private readonly executor: Executor;
 	private readonly detector: SignalDetector;
 	private readonly journal: Journal | null;
-	private readonly stateView: StateView;
+	private readonly warmupTicks: number;
+	private tickCount = 0;
 
 	private tickInProgress = false;
 
@@ -73,9 +78,10 @@ export class BuiltStrategy {
 		this.positionManager = deps.position.positionManager;
 		this.guardPipeline = deps.risk.guardPipeline;
 		this.exitPipeline = deps.risk.exitPipeline;
+		this.stateMachine = deps.lifecycle.stateMachine;
 		this.stateView = {
-			canOpen: () => deps.lifecycle.stateMachine.canOpen(),
-			canClose: () => deps.lifecycle.stateMachine.canClose(),
+			canOpen: () => this.stateMachine.canOpen(),
+			canClose: () => this.stateMachine.canClose(),
 		};
 		this.watchdog = deps.lifecycle.watchdog;
 		this.eventDispatcher = deps.monitor.eventDispatcher;
@@ -83,6 +89,7 @@ export class BuiltStrategy {
 		this.executor = deps.executor;
 		this.detector = deps.detector;
 		this.journal = deps.journal;
+		this.warmupTicks = deps.warmupTicks ?? 0;
 	}
 
 	public async tick(ctx: TickContext): Promise<void> {
@@ -94,6 +101,7 @@ export class BuiltStrategy {
 
 		try {
 			this.watchdog.touch();
+			this.advanceLifecycle();
 
 			if (!this.stateView.canOpen() && !this.stateView.canClose()) {
 				return;
@@ -138,6 +146,56 @@ export class BuiltStrategy {
 			await this.processEntry(ctx);
 		} finally {
 			this.tickInProgress = false;
+		}
+	}
+
+	private advanceLifecycle(): void {
+		const currentState = this.stateMachine.state();
+
+		if (currentState === StrategyState.Initializing) {
+			this.tryTransition("initialize", StrategyState.Initializing, StrategyState.WarmingUp);
+		}
+
+		if (this.stateMachine.state() === StrategyState.WarmingUp) {
+			if (this.warmupTicks > 0) {
+				this.tickCount++;
+				const progressPct = Math.round((this.tickCount / this.warmupTicks) * 100);
+				const warmupResult = this.stateMachine.transition({
+					type: "update_warmup",
+					progressPct,
+				});
+				if (!warmupResult.ok) {
+					this.emitError(
+						"STATE_TRANSITION_FAILED",
+						`update_warmup failed: ${warmupResult.error.message}`,
+					);
+				}
+
+				if (this.tickCount < this.warmupTicks) {
+					return;
+				}
+			}
+
+			this.tryTransition("warmup_complete", StrategyState.WarmingUp, StrategyState.Active);
+		}
+	}
+
+	private tryTransition(
+		type: "initialize" | "warmup_complete",
+		from: StrategyState,
+		to: StrategyState,
+	): void {
+		const result = this.stateMachine.transition({ type });
+		if (result.ok) {
+			this.eventDispatcher.emitSdk({
+				type: "state_changed",
+				from,
+				to,
+				transition: type,
+				timestamp: Date.now(),
+			});
+		} else {
+			this.emitError("STATE_TRANSITION_FAILED", `${type} failed: ${result.error.message}`);
 		}
 	}
 
@@ -277,12 +335,22 @@ export class BuiltStrategy {
 
 	private buildSellIntent(position: SdkPosition, ctx: TickContext): SdkOrderIntent {
 		const oppositeSide = position.side === "yes" ? "no" : "yes";
+		const spotPrice = ctx.spot();
+		if (spotPrice === null) {
+			this.eventDispatcher.emitSdk({
+				type: "error_occurred",
+				timestamp: Date.now(),
+				code: "SPOT_PRICE_UNAVAILABLE",
+				message: `Using entry price as fallback for exit on ${position.conditionId}`,
+				category: "non_retryable",
+			});
+		}
 		return {
 			conditionId: position.conditionId,
 			tokenId: position.tokenId,
 			side: oppositeSide,
 			direction: "sell",
-			price: ctx.spot() ?? position.entryPrice,
+			price: spotPrice ?? position.entryPrice,
 			size: position.size,
 		};
 	}
