@@ -87,6 +87,7 @@ export class OrderCoordinator {
 		}
 
 		const orderResult = result.value;
+		this.registry.updateState(coid, PendingState.Submitted);
 		this.registry.updateState(coid, orderResult.finalState);
 
 		let builder = OrderHandleBuilder.create(coid);

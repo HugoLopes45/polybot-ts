@@ -52,8 +52,12 @@ export class PaperExecutor implements Executor {
 	private readonly activeOrders: Map<string, SdkOrderIntent>;
 
 	constructor(config?: Partial<PaperExecutorConfig>) {
+		const fillProbability = config?.fillProbability ?? 1;
+		if (fillProbability < 0 || fillProbability > 1) {
+			throw new Error(`fillProbability must be in [0, 1], got ${fillProbability}`);
+		}
 		this.config = {
-			fillProbability: config?.fillProbability ?? 1,
+			fillProbability,
 			slippageBps: config?.slippageBps ?? 0,
 			fillDelayMs: config?.fillDelayMs ?? 0,
 			clock: config?.clock ?? SystemClock,

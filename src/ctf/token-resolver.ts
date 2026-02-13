@@ -30,6 +30,7 @@ const DEFAULT_MAX_SIZE = 256;
 export class CachingTokenResolver {
 	private readonly reader: ContractReader;
 	private readonly cache: Cache<TokenInfo>;
+	private readonly inflight = new Map<string, Promise<Result<TokenInfo, TradingError>>>();
 
 	constructor(config: TokenResolverConfig) {
 		this.reader = config.reader;
@@ -42,6 +43,7 @@ export class CachingTokenResolver {
 	/**
 	 * Resolves a condition ID to its YES and NO token IDs.
 	 * Returns cached result if available, otherwise reads from the contract.
+	 * Coalesces concurrent requests for the same conditionId.
 	 * @param conditionId - The market condition to resolve
 	 */
 	async resolve(conditionId: ConditionId): Promise<Result<TokenInfo, TradingError>> {
@@ -52,6 +54,24 @@ export class CachingTokenResolver {
 			return ok(cached);
 		}
 
+		const existing = this.inflight.get(key);
+		if (existing) {
+			return existing;
+		}
+
+		const promise = this.resolveFromContract(conditionId, key);
+		this.inflight.set(key, promise);
+		try {
+			return await promise;
+		} finally {
+			this.inflight.delete(key);
+		}
+	}
+
+	private async resolveFromContract(
+		conditionId: ConditionId,
+		key: string,
+	): Promise<Result<TokenInfo, TradingError>> {
 		const result = await this.reader.read<readonly [MarketTokenId, MarketTokenId]>("getTokenIds", [
 			conditionId,
 		]);

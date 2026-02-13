@@ -59,6 +59,10 @@ export class MarketCatalog {
 		if (cached && this.clock.now() < cached.expiresAtMs) {
 			return ok(cached.market);
 		}
+		// Evict stale entry
+		if (cached) {
+			this.cache.delete(key);
+		}
 
 		let market: MarketInfo | null;
 		try {

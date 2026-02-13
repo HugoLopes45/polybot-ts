@@ -38,7 +38,8 @@ export function scan(
 
 		const spreadNum = sp.toNumber();
 		const edgeNum = edge.toNumber();
-		const score = spreadNum > 0 ? edgeNum / spreadNum : 0;
+		const raw = spreadNum > 0 ? edgeNum / spreadNum : 0;
+		const score = Number.isFinite(raw) ? raw : 0;
 
 		results.push({
 			conditionId: market.conditionId,

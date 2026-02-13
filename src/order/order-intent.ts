@@ -4,7 +4,7 @@
  * Factory functions validate inputs and return frozen (immutable) objects.
  */
 
-import type { Decimal } from "../shared/decimal.js";
+import { Decimal } from "../shared/decimal.js";
 import type { ConditionId, MarketTokenId } from "../shared/identifiers.js";
 import { MarketSide } from "../shared/market-side.js";
 import { OrderDirection, type SdkOrderIntent } from "../signal/types.js";
@@ -12,6 +12,11 @@ import { OrderDirection, type SdkOrderIntent } from "../signal/types.js";
 function validateIntent(price: Decimal, size: Decimal): void {
 	if (price.isNegative()) {
 		throw new Error(`Order price must be non-negative, got ${price.toString()}`);
+	}
+	if (price.gt(Decimal.one())) {
+		throw new Error(
+			`Order price must not exceed 1.0 for prediction markets, got ${price.toString()}`,
+		);
 	}
 	if (size.isZero() || size.isNegative()) {
 		throw new Error(`Order size must be positive, got ${size.toString()}`);

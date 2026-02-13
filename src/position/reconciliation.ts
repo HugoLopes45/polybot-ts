@@ -1,4 +1,4 @@
-import type { Decimal } from "../shared/decimal.js";
+import { Decimal } from "../shared/decimal.js";
 import type { ConditionId, MarketTokenId } from "../shared/identifiers.js";
 import type { MarketSide } from "../shared/market-side.js";
 import type { SdkPosition } from "./sdk-position.js";
@@ -30,6 +30,7 @@ export interface ReconcileResult {
 
 export interface ReconcilerConfig {
 	readonly haltThreshold: number;
+	readonly toleranceBps: number;
 }
 
 function positionKey(conditionId: string, side: MarketSide): string {
@@ -42,6 +43,7 @@ export class PositionReconciler {
 	constructor(config: Partial<ReconcilerConfig> = {}) {
 		this.config = {
 			haltThreshold: config.haltThreshold ?? DEFAULT_HALT_THRESHOLD,
+			toleranceBps: config.toleranceBps ?? 0,
 		};
 	}
 
@@ -69,7 +71,7 @@ export class PositionReconciler {
 					conditionId: sdkPos.conditionId,
 					sdkSize: sdkPos.size,
 				});
-			} else if (!sdkPos.size.eq(exchangePos.size)) {
+			} else if (!this.withinTolerance(sdkPos.size, exchangePos.size)) {
 				actions.push({
 					type: "size_mismatch",
 					conditionId: sdkPos.conditionId,
@@ -92,10 +94,10 @@ export class PositionReconciler {
 		const unknownCount = actions.filter((a) => a.type === "unknown").length;
 		const mismatchCount = actions.filter((a) => a.type === "size_mismatch").length;
 
-		const shouldHalt = unknownCount > this.config.haltThreshold;
+		const shouldHalt = orphanCount + unknownCount > this.config.haltThreshold;
 
 		const summary = shouldHalt
-			? `HALTED: Too many unknowns (${unknownCount})`
+			? `HALTED: Too many discrepancies (${orphanCount} orphans, ${unknownCount} unknowns)`
 			: `Sync: ${orphanCount} orphans, ${unknownCount} unknowns, ${mismatchCount} mismatches`;
 
 		return {
@@ -103,5 +105,14 @@ export class PositionReconciler {
 			shouldHalt,
 			summary,
 		};
+	}
+
+	private withinTolerance(a: Decimal, b: Decimal): boolean {
+		if (a.eq(b)) return true;
+		const diff = a.sub(b).abs();
+		const max = Decimal.max(a.abs(), b.abs());
+		if (max.isZero()) return true;
+		const diffBps = diff.div(max).toNumber() * 10_000;
+		return diffBps <= this.config.toleranceBps;
 	}
 }

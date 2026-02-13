@@ -58,9 +58,20 @@ export class ExposureGuard implements EntryGuard {
 
 	check(ctx: GuardContext): GuardVerdict {
 		const balance = ctx.availableBalance();
-		if (balance.isZero()) return allow();
-
 		const exposure = ctx.totalExposure();
+
+		if (balance.isZero()) {
+			if (exposure.isPositive()) {
+				return blockWithValues(
+					this.name,
+					"zero balance with existing exposure",
+					Number.POSITIVE_INFINITY,
+					this.maxExposurePct * 100,
+				);
+			}
+			return allow();
+		}
+
 		const ratioPct = exposure.div(balance).toNumber();
 		if (ratioPct >= this.maxExposurePct) {
 			return blockWithValues(

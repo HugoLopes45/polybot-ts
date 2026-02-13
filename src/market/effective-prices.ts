@@ -26,11 +26,15 @@ export function getEffectivePrices(
 	return { buyYes, buyNo, sellYes, sellNo };
 }
 
+function clampMirror(value: Decimal): Decimal {
+	return Decimal.max(Decimal.zero(), Decimal.min(Decimal.one(), value));
+}
+
 function computeBuyYes(yesAsk: Decimal | null, noBid: Decimal | null): Decimal | null {
 	if (yesAsk === null && noBid === null) return null;
 
 	const direct = yesAsk !== null ? yesAsk : null;
-	const mirror = noBid !== null ? Decimal.one().sub(noBid) : null;
+	const mirror = noBid !== null ? clampMirror(Decimal.one().sub(noBid)) : null;
 
 	if (direct !== null && mirror !== null) return Decimal.min(direct, mirror);
 	if (direct !== null) return direct;
@@ -41,7 +45,7 @@ function computeBuyNo(noAsk: Decimal | null, yesBid: Decimal | null): Decimal | 
 	if (noAsk === null && yesBid === null) return null;
 
 	const direct = noAsk !== null ? noAsk : null;
-	const mirror = yesBid !== null ? Decimal.one().sub(yesBid) : null;
+	const mirror = yesBid !== null ? clampMirror(Decimal.one().sub(yesBid)) : null;
 
 	if (direct !== null && mirror !== null) return Decimal.min(direct, mirror);
 	if (direct !== null) return direct;
@@ -52,7 +56,7 @@ function computeSellYes(yesBid: Decimal | null, noAsk: Decimal | null): Decimal 
 	if (yesBid === null && noAsk === null) return null;
 
 	const direct = yesBid !== null ? yesBid : null;
-	const mirror = noAsk !== null ? Decimal.one().sub(noAsk) : null;
+	const mirror = noAsk !== null ? clampMirror(Decimal.one().sub(noAsk)) : null;
 
 	if (direct !== null && mirror !== null) return Decimal.max(direct, mirror);
 	if (direct !== null) return direct;
@@ -63,7 +67,7 @@ function computeSellNo(noBid: Decimal | null, yesAsk: Decimal | null): Decimal |
 	if (noBid === null && yesAsk === null) return null;
 
 	const direct = noBid !== null ? noBid : null;
-	const mirror = yesAsk !== null ? Decimal.one().sub(yesAsk) : null;
+	const mirror = yesAsk !== null ? clampMirror(Decimal.one().sub(yesAsk)) : null;
 
 	if (direct !== null && mirror !== null) return Decimal.max(direct, mirror);
 	if (direct !== null) return direct;
