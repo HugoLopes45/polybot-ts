@@ -86,10 +86,14 @@ All domain operations return `Result<T, TradingError>`. Errors are classified:
 
 ## Implementation Phases
 
-- [x] Phase 0: Foundation (shared/, lifecycle/, events/) — 115 tests
-- [ ] Phase 1: Risk & Signal Framework
-- [ ] Phase 2: Execution & Auth
-- [ ] Phase 3: WebSocket & Market Data
-- [ ] Phase 4: Strategy Runtime
-- [ ] Phase 5: Persistence & CTF
-- [ ] Phase 6: Polish & Publish
+- [x] Phase 0: Foundation (shared/, lifecycle/, events/)
+- [x] Phase 1: Risk & Signal Framework
+- [x] Phase 2: Execution & Auth
+- [x] Phase 3: WebSocket & Market Data
+- [x] Phase 4: Strategy Runtime
+- [x] Phase 5: Persistence & CTF
+- [x] Phase 6.1: Library Wrappers (validation, typed events, guard combinators)
+- [ ] Phase 6.2: Documentation & Polish
+- [ ] Phase 7: npm publish & CLI
+
+808+ tests across 63 test files.

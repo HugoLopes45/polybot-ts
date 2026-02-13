@@ -5,6 +5,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/HugoLopes45/polybot-ts/actions/workflows/ci.yml"><img src="https://github.com/HugoLopes45/polybot-ts/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript&logoColor=white" alt="TypeScript 5.7"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
   <a href="#"><img src="https://img.shields.io/badge/ESM%20%2B%20CJS-dual%20output-blueviolet" alt="ESM + CJS dual output"></a>
@@ -110,7 +111,7 @@ const oracleArb: SignalDetector<unknown, { price: Decimal; edge: number }> = {
 - **Branded identifiers** — `ConditionId`, `MarketTokenId`, `ClientOrderId` (zero runtime cost)
 - **BigInt Decimal** — 18-digit fixed-point precision, no floating-point money bugs
 - **Result\<T, E\>** — no thrown exceptions in domain code, pattern-match with `isOk()`/`isErr()`
-- **Zero runtime dependencies** — pure TypeScript, no `node_modules` bloat
+- **Library-abstracted** — all external deps wrapped in `lib/`, swap implementations without touching domain code
 - **ESM + CJS dual output** — works everywhere via tsup
 - **Clock injection** — deterministic tests, no `Date.now()` in domain code
 
@@ -202,11 +203,13 @@ pnpm ci               # Run all CI checks
 
 - [x] **Phase 0** — Shared kernel, lifecycle state machine, domain events
 - [x] **Phase 1** — Risk guards, exit pipelines, position tracking, order FSM
-- [ ] **Phase 2** — Execution layer, Polymarket CLOB integration, authentication
-- [ ] **Phase 3** — WebSocket real-time market data, orderbook streaming
-- [ ] **Phase 4** — Strategy runtime, builder pattern, presets
-- [ ] **Phase 5** — Persistence, CTF operations (split/merge/redeem), journal
-- [ ] **Phase 6** — npm publish, documentation site, example strategies
+- [x] **Phase 2** — Execution layer, Polymarket CLOB integration, authentication
+- [x] **Phase 3** — WebSocket real-time market data, orderbook streaming
+- [x] **Phase 4** — Strategy runtime, builder pattern, presets
+- [x] **Phase 5** — Persistence, CTF operations (split/merge/redeem), journal
+- [x] **Phase 6.1** — Library wrappers (validation, typed events, guard combinators)
+- [ ] **Phase 6.2** — JSDoc completion, documentation polish, CHANGELOG
+- [ ] **Phase 7** — npm publish, documentation site, CLI tooling
 
 ---
 
@@ -219,7 +222,7 @@ pnpm ci               # Run all CI checks
 | Exit pipeline (7 policies) | Yes | No | Manual |
 | Position tracking with P&L | Yes | No | Basic |
 | Order state machine (7 states) | Yes | No | No |
-| Zero runtime dependencies | Yes | No | Varies |
+| Library abstraction layer | Yes | No | No |
 
 ---
 
