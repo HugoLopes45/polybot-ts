@@ -114,9 +114,14 @@ export {
 	type ClosedPosition,
 	type PositionSnapshot,
 	type FillRecord,
+	type ExchangePosition,
+	type ReconcileAction,
+	type ReconcileResult,
+	type ReconcilerConfig,
 	CostBasis,
 	SdkPosition,
 	PositionManager,
+	PositionReconciler,
 } from "./position/index.js";
 
 // ── Accounting ──────────────────────────────────────────────────────
@@ -198,16 +203,21 @@ export { TokenBucketRateLimiter } from "./lib/http/index.js";
 
 // ── Market ──────────────────────────────────────────────────────────
 export {
+	type ArbitrageLeg,
+	type ArbitrageOpportunity,
+	type EffectivePrices,
 	type MarketInfo,
 	type OrderbookDelta,
 	type OrderbookLevel,
 	type OrderbookSnapshot,
 	type ScanResult,
 	type MarketServiceDeps,
+	checkArbitrage,
 	applyDelta,
 	bestAsk,
 	bestBid,
 	effectivePrice,
+	getEffectivePrices,
 	midPrice,
 	spread,
 	MarketService,
