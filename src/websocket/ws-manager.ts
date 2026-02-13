@@ -1,7 +1,14 @@
 import type { WsState } from "../lib/websocket/types.js";
 import type { TradingError } from "../shared/errors.js";
 import type { Result } from "../shared/result.js";
+import { SystemClock } from "../shared/time.js";
+import type { Clock } from "../shared/time.js";
 import type { Subscription, WsMessage } from "./types.js";
+
+export interface WsManagerConfig {
+	heartbeatTimeoutMs?: number;
+	clock?: Clock;
+}
 
 /**
  * Minimal interface for the underlying WebSocket client.
@@ -28,9 +35,14 @@ export class WsManager {
 	private readonly subscriptions: Map<string, Subscription> = new Map();
 	private buffer: WsMessage[] = [];
 	private _generation = 0;
+	private readonly heartbeatTimeoutMs: number;
+	private readonly clock: Clock;
+	private lastMessageAtMs: number | null = null;
 
-	constructor(client: WsClientLike) {
+	constructor(client: WsClientLike, config: WsManagerConfig = {}) {
 		this.client = client;
+		this.heartbeatTimeoutMs = config.heartbeatTimeoutMs ?? -1;
+		this.clock = config.clock ?? SystemClock;
 		this.client.onMessage((data) => this.handleMessage(data));
 	}
 
@@ -38,9 +50,24 @@ export class WsManager {
 		return this._generation;
 	}
 
+	isHeartbeatStale(): boolean {
+		if (this.heartbeatTimeoutMs < 0) {
+			return false;
+		}
+		if (this.lastMessageAtMs === null) {
+			return false;
+		}
+		return this.clock.now() - this.lastMessageAtMs > this.heartbeatTimeoutMs;
+	}
+
+	checkHeartbeat(): "healthy" | "stale" {
+		return this.isHeartbeatStale() ? "stale" : "healthy";
+	}
+
 	async connect(): Promise<void> {
 		await this.client.connect();
 		this._generation += 1;
+		this.lastMessageAtMs = this.clock.now();
 	}
 
 	subscribe(sub: Subscription): Result<void, TradingError> {
@@ -64,6 +91,7 @@ export class WsManager {
 	async reconnect(): Promise<void> {
 		this.client.close();
 		this.buffer = [];
+		this.lastMessageAtMs = this.clock.now();
 		await this.client.connect();
 		this._generation += 1;
 		this.replaySubscriptions();
@@ -74,6 +102,7 @@ export class WsManager {
 		if (parsed !== null) {
 			this.buffer.push(parsed);
 		}
+		this.lastMessageAtMs = this.clock.now();
 	}
 
 	private replaySubscriptions(): void {

@@ -4,11 +4,12 @@ import { NetworkError } from "../shared/errors.js";
 import type { TradingError } from "../shared/errors.js";
 import type { Result } from "../shared/result.js";
 import { err, ok } from "../shared/result.js";
+import { FakeClock } from "../shared/time.js";
 import { WsManager } from "./ws-manager.js";
 
 class StubWsClient {
 	private messageHandler: ((data: string) => void) | null = null;
-	private closeHandler: (() => void) | null = null;
+	private closeHandler: ((code: number, reason: string) => void) | null = null;
 	private state: WsState = "closed";
 	readonly sent: string[] = [];
 
@@ -23,7 +24,7 @@ class StubWsClient {
 
 	close(): void {
 		this.state = "closed";
-		this.closeHandler?.();
+		this.closeHandler?.(1000, "closing");
 	}
 
 	getState(): WsState {
@@ -34,7 +35,7 @@ class StubWsClient {
 		this.messageHandler = h;
 	}
 
-	onClose(h: () => void): void {
+	onClose(h: (code: number, reason: string) => void): void {
 		this.closeHandler = h;
 	}
 
@@ -178,5 +179,104 @@ describe("WsManager", () => {
 
 		client.simulateMessage(JSON.stringify({ type: "user_fill", timestampMs: 1000 }));
 		expect(manager.drain()).toHaveLength(0);
+	});
+
+	describe("heartbeat", () => {
+		it("fresh connection is healthy", async () => {
+			const client = new StubWsClient();
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { heartbeatTimeoutMs: 60_000, clock });
+			await manager.connect();
+
+			expect(manager.checkHeartbeat()).toBe("healthy");
+		});
+
+		it("message received resets timer", async () => {
+			const client = new StubWsClient();
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { heartbeatTimeoutMs: 60_000, clock });
+			await manager.connect();
+
+			clock.advance(50_000);
+			client.simulateMessage(bookUpdateJson());
+
+			clock.advance(15_000);
+			expect(manager.checkHeartbeat()).toBe("healthy");
+
+			clock.advance(50_000);
+			expect(manager.checkHeartbeat()).toBe("stale");
+		});
+
+		it("silence exceeds timeout returns stale", async () => {
+			const client = new StubWsClient();
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { heartbeatTimeoutMs: 60_000, clock });
+			await manager.connect();
+
+			client.simulateMessage(bookUpdateJson());
+			clock.advance(61_000);
+
+			expect(manager.checkHeartbeat()).toBe("stale");
+		});
+
+		it("default timeout is 60s (59s=healthy, 61s=stale)", async () => {
+			const client = new StubWsClient();
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { heartbeatTimeoutMs: 60_000, clock });
+			await manager.connect();
+
+			client.simulateMessage(bookUpdateJson());
+
+			clock.advance(59_000);
+			expect(manager.checkHeartbeat()).toBe("healthy");
+
+			clock.advance(2_000);
+			expect(manager.checkHeartbeat()).toBe("stale");
+		});
+
+		it("custom timeout respected", async () => {
+			const client = new StubWsClient();
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { heartbeatTimeoutMs: 30_000, clock });
+			await manager.connect();
+
+			client.simulateMessage(bookUpdateJson());
+
+			clock.advance(31_000);
+			expect(manager.checkHeartbeat()).toBe("stale");
+
+			clock.set(1000);
+			client.simulateMessage(bookUpdateJson());
+			clock.advance(20_000);
+			expect(manager.checkHeartbeat()).toBe("healthy");
+		});
+
+		it("reconnect resets timer", async () => {
+			const client = new StubWsClient();
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { heartbeatTimeoutMs: 60_000, clock });
+			await manager.connect();
+
+			client.simulateMessage(bookUpdateJson());
+			clock.advance(30_000);
+
+			await manager.reconnect();
+
+			clock.advance(50_000);
+			expect(manager.checkHeartbeat()).toBe("healthy");
+
+			clock.advance(20_000);
+			expect(manager.checkHeartbeat()).toBe("stale");
+		});
+
+		it("no timeout configured = always healthy", async () => {
+			const client = new StubWsClient();
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { clock });
+			await manager.connect();
+
+			clock.advance(1_000_000_000);
+			expect(manager.checkHeartbeat()).toBe("healthy");
+		});
 	});
 });
