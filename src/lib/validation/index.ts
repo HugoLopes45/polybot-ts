@@ -11,8 +11,14 @@ import { err, ok } from "../../shared/result.js";
 import type { Result } from "../../shared/result.js";
 
 /**
- * Zod library re-export for building validation schemas.
- * Domain code uses this to create schemas without importing zod directly .
+ * Zod schema builder re-export — intentional abstraction leak.
+ *
+ * Wrapping `safeParse` into `Result<T, ValidationError>` is straightforward,
+ * but wrapping schema *definition* (z.object, z.string, z.array, etc.) would
+ * require building a custom schema DSL with no practical benefit. Domain code
+ * imports `{ z }` from here rather than from "zod" directly, so the dependency
+ * is still centralized — if Zod is ever replaced, schema definitions must be
+ * rewritten but the migration surface is a single import path.
  */
 export { z };
 
