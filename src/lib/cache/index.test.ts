@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { FakeClock } from "../../shared/time.js";
 import { Cache } from "./index.js";
 
 describe("Cache", () => {
@@ -14,12 +15,13 @@ describe("Cache", () => {
 			expect(cache.get("key")).toBe("value");
 		});
 
-		it("returns undefined after TTL expires", async () => {
-			const cache = new Cache<string>({ ttl: 50, maxSize: 10 });
+		it("returns undefined after TTL expires", () => {
+			const clock = new FakeClock(1000);
+			const cache = new Cache<string>({ ttl: 50, maxSize: 10, clock });
 			cache.set("key", "value");
 			expect(cache.get("key")).toBe("value");
 
-			await new Promise((resolve) => setTimeout(resolve, 60));
+			clock.advance(51);
 			expect(cache.get("key")).toBeUndefined();
 		});
 	});

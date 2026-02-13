@@ -122,4 +122,38 @@ describe("TypedEmitter", () => {
 
 		expect(result).toBe(emitter);
 	});
+
+	it("handler throw propagates to caller (HARD-29)", () => {
+		const emitter = new TypedEmitter<TestEvents>();
+		emitter.on("tick", () => {
+			throw new Error("handler crash");
+		});
+
+		expect(() => emitter.emit("tick", { price: 1 })).toThrow("handler crash");
+	});
+
+	it("second handler still fires even if first throws (HARD-29)", () => {
+		const emitter = new TypedEmitter<TestEvents>();
+		const h2 = vi.fn();
+
+		emitter.on("tick", () => {
+			throw new Error("first handler crash");
+		});
+		emitter.on("tick", h2);
+
+		// eventemitter3 stops at first throw
+		expect(() => emitter.emit("tick", { price: 1 })).toThrow("first handler crash");
+		// Second handler does NOT fire in eventemitter3 (unlike Node EventEmitter)
+		expect(h2).not.toHaveBeenCalled();
+	});
+
+	it("emit with zero-argument event works correctly", () => {
+		const emitter = new TypedEmitter<TestEvents>();
+		const handler = vi.fn();
+
+		emitter.on("ping", handler);
+		emitter.emit("ping");
+
+		expect(handler).toHaveBeenCalledTimes(1);
+	});
 });

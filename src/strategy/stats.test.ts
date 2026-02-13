@@ -234,6 +234,73 @@ describe("StrategyStats", () => {
 		});
 	});
 
+	describe("Invalid pnl guard (HARD-26)", () => {
+		it("ignores event with NaN pnl", () => {
+			const dispatcher = new EventDispatcher();
+			const stats = new StrategyStats(dispatcher);
+
+			dispatcher.emitSdk(createPositionClosed(100));
+			dispatcher.emitSdk(createPositionClosed(Number.NaN));
+
+			const snapshot = stats.snapshot();
+			expect(snapshot.tradeCount).toBe(1);
+			expect(snapshot.totalPnl.toNumber()).toBe(100);
+		});
+
+		it("ignores event with Infinity pnl", () => {
+			const dispatcher = new EventDispatcher();
+			const stats = new StrategyStats(dispatcher);
+
+			dispatcher.emitSdk(createPositionClosed(Number.POSITIVE_INFINITY));
+
+			const snapshot = stats.snapshot();
+			expect(snapshot.tradeCount).toBe(0);
+		});
+
+		it("ignores event with -Infinity pnl", () => {
+			const dispatcher = new EventDispatcher();
+			const stats = new StrategyStats(dispatcher);
+
+			dispatcher.emitSdk(createPositionClosed(Number.NEGATIVE_INFINITY));
+
+			const snapshot = stats.snapshot();
+			expect(snapshot.tradeCount).toBe(0);
+		});
+	});
+
+	describe("Invalid fee guard (HARD-27)", () => {
+		it("ignores event with NaN fee", () => {
+			const dispatcher = new EventDispatcher();
+			const stats = new StrategyStats(dispatcher);
+
+			dispatcher.emitSdk(createPositionClosed(100, Number.NaN));
+
+			const snapshot = stats.snapshot();
+			expect(snapshot.tradeCount).toBe(0);
+		});
+
+		it("ignores event with Infinity fee", () => {
+			const dispatcher = new EventDispatcher();
+			const stats = new StrategyStats(dispatcher);
+
+			dispatcher.emitSdk(createPositionClosed(100, Number.POSITIVE_INFINITY));
+
+			const snapshot = stats.snapshot();
+			expect(snapshot.tradeCount).toBe(0);
+		});
+
+		it("processes event with undefined fee (defaults to zero)", () => {
+			const dispatcher = new EventDispatcher();
+			const stats = new StrategyStats(dispatcher);
+
+			dispatcher.emitSdk(createPositionClosed(100));
+
+			const snapshot = stats.snapshot();
+			expect(snapshot.tradeCount).toBe(1);
+			expect(snapshot.totalFees.toNumber()).toBe(0);
+		});
+	});
+
 	describe("Snapshot immutability", () => {
 		it("snapshot is immutable", () => {
 			const dispatcher = new EventDispatcher();

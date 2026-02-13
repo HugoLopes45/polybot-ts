@@ -60,17 +60,8 @@ export class MultiMarketManager {
 			try {
 				this.applyBookUpdate(bookUpdate);
 			} catch (e: unknown) {
-				// Only swallow Decimal parse errors; capture unexpected errors
-				if (
-					e instanceof Error &&
-					(e.message.includes("DecimalError") || e.message.includes("Invalid"))
-				) {
-					continue;
-				}
-				if (e instanceof Error) {
-					if (this._parseErrors.length < 100) {
-						this._parseErrors.push(e);
-					}
+				if (e instanceof Error && this._parseErrors.length < 100) {
+					this._parseErrors.push(e);
 				}
 			}
 		}

@@ -192,6 +192,64 @@ describe("ClobExecutor", () => {
 		});
 	});
 
+	describe("status mapping edge cases (HARD-28)", () => {
+		it("classifies partial fill with CANCELLED status as PartiallyFilled", async () => {
+			const cancelledPartial: ClobOrderResponse = {
+				orderId: "exch-400",
+				status: "CANCELLED",
+				filledSize: "5",
+				avgPrice: "0.55",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(cancelledPartial),
+			});
+			const result = await executor.submit(testIntent());
+
+			expect(isOk(result)).toBe(true);
+			if (result.ok) {
+				// Partial fill takes precedence over CANCELLED status
+				expect(result.value.finalState).toBe(PendingState.PartiallyFilled);
+				expect(result.value.totalFilled.eq(Decimal.from("5"))).toBe(true);
+			}
+		});
+
+		it("classifies zero fill with CANCELLED status as Cancelled", async () => {
+			const cancelledZero: ClobOrderResponse = {
+				orderId: "exch-500",
+				status: "CANCELLED",
+				filledSize: "0",
+				avgPrice: "",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(cancelledZero),
+			});
+			const result = await executor.submit(testIntent());
+
+			expect(isOk(result)).toBe(true);
+			if (result.ok) {
+				expect(result.value.finalState).toBe(PendingState.Cancelled);
+			}
+		});
+
+		it("classifies zero fill with unknown status as Open", async () => {
+			const openOrder: ClobOrderResponse = {
+				orderId: "exch-600",
+				status: "PENDING",
+				filledSize: "0",
+				avgPrice: "",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(openOrder),
+			});
+			const result = await executor.submit(testIntent());
+
+			expect(isOk(result)).toBe(true);
+			if (result.ok) {
+				expect(result.value.finalState).toBe(PendingState.Open);
+			}
+		});
+	});
+
 	describe("avgPrice edge cases (HARD-18)", () => {
 		it("handles empty avgPrice string in response", async () => {
 			const emptyAvg: ClobOrderResponse = {

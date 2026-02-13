@@ -292,7 +292,7 @@ describe("MultiMarketManager", () => {
 		expect(book?.bids[0]?.price.toString()).toBe("0.6");
 	});
 
-	it("captures unexpected parse errors via drainParseErrors", async () => {
+	it("captures Decimal parse errors via drainParseErrors (HARD-30)", async () => {
 		const client = new StubWsClient();
 		const wsManager = new WsManager(client);
 		await wsManager.connect();
@@ -305,10 +305,7 @@ describe("MultiMarketManager", () => {
 		client.simulateMessage(bookUpdateJson("cond-1", 1000));
 		mmManager.processUpdates();
 
-		// Now inject an update that will cause a non-Decimal error
-		// by corrupting the internal books map
-		// Instead, use a book_update with valid structure but that triggers
-		// a Decimal parse error (which should be swallowed)
+		// Inject an update with invalid Decimal values
 		client.simulateMessage(
 			JSON.stringify({
 				type: "book_update",
@@ -320,8 +317,42 @@ describe("MultiMarketManager", () => {
 		);
 		mmManager.processUpdates();
 
-		// Decimal parse errors are swallowed (not captured)
-		expect(mmManager.drainParseErrors()).toHaveLength(0);
+		// Decimal parse errors should now be captured
+		const errors = mmManager.drainParseErrors();
+		expect(errors).toHaveLength(1);
+		expect(errors[0]?.message).toMatch(/DecimalError|Invalid/);
+	});
+
+	it("does not crash on Decimal errors and continues processing (HARD-30)", async () => {
+		const client = new StubWsClient();
+		const wsManager = new WsManager(client);
+		await wsManager.connect();
+		const mmManager = new MultiMarketManager(wsManager);
+
+		const condId1 = conditionId("cond-1");
+		const condId2 = conditionId("cond-2");
+		mmManager.addMarket(condId1);
+		mmManager.addMarket(condId2);
+
+		// Valid + invalid + valid
+		client.simulateMessage(bookUpdateJson("cond-1", 1000));
+		client.simulateMessage(
+			JSON.stringify({
+				type: "book_update",
+				conditionId: "cond-1",
+				bids: [{ price: "garbage", size: "also-garbage" }],
+				asks: [],
+				timestampMs: 1500,
+			}),
+		);
+		client.simulateMessage(bookUpdateJson("cond-2", 2000));
+		mmManager.processUpdates();
+
+		// Both valid updates should be processed
+		expect(mmManager.getBook(condId1)).not.toBeNull();
+		expect(mmManager.getBook(condId2)).not.toBeNull();
+		// Error captured
+		expect(mmManager.drainParseErrors()).toHaveLength(1);
 	});
 
 	it("drainParseErrors clears errors after draining", async () => {
