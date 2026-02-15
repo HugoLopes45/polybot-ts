@@ -9,6 +9,14 @@ export interface RateLimiterConfig {
 	readonly clock: Clock;
 }
 
+/** Snapshot of rate limiter usage statistics. */
+export interface RateLimiterStats {
+	readonly hits: number;
+	readonly misses: number;
+	readonly waits: number;
+	readonly avgWaitMs: number;
+}
+
 /**
  * Token-bucket rate limiter with injectable clock for deterministic testing.
  *
@@ -22,6 +30,11 @@ export class TokenBucketRateLimiter {
 	private readonly clock: Clock;
 	private tokens: number;
 	private lastRefillMs: number;
+
+	private _hits = 0;
+	private _misses = 0;
+	private _waits = 0;
+	private _totalWaitMs = 0;
 
 	constructor(config: RateLimiterConfig) {
 		this.capacity = config.capacity;
@@ -40,6 +53,17 @@ export class TokenBucketRateLimiter {
 	 * }
 	 */
 	tryAcquire(): boolean {
+		const acquired = this.rawTryAcquire();
+		if (acquired) {
+			this._hits++;
+		} else {
+			this._misses++;
+		}
+		return acquired;
+	}
+
+	/** Acquires a token without updating stats. Used internally by waitForToken polling. */
+	private rawTryAcquire(): boolean {
 		this.refill();
 		if (this.tokens >= 1) {
 			this.tokens -= 1;
@@ -62,18 +86,42 @@ export class TokenBucketRateLimiter {
 	 * @returns Promise that resolves when a token is acquired.
 	 */
 	waitForToken(): Promise<void> {
-		if (this.tryAcquire()) {
+		if (this.rawTryAcquire()) {
+			this._hits++;
 			return Promise.resolve();
 		}
 
+		const startMs = this.clock.now();
+		this._waits++;
+
 		return new Promise<void>((resolve) => {
 			const interval = setInterval(() => {
-				if (this.tryAcquire()) {
+				if (this.rawTryAcquire()) {
 					clearInterval(interval);
+					this._hits++;
+					this._totalWaitMs += this.clock.now() - startMs;
 					resolve();
 				}
 			}, 10);
 		});
+	}
+
+	/** Returns a snapshot of rate limiter usage statistics. */
+	getStats(): RateLimiterStats {
+		return {
+			hits: this._hits,
+			misses: this._misses,
+			waits: this._waits,
+			avgWaitMs: this._waits > 0 ? this._totalWaitMs / this._waits : 0,
+		};
+	}
+
+	/** Resets all usage statistics counters to zero. */
+	resetStats(): void {
+		this._hits = 0;
+		this._misses = 0;
+		this._waits = 0;
+		this._totalWaitMs = 0;
 	}
 
 	private refill(): void {

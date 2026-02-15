@@ -51,3 +51,19 @@ export interface ScanResult {
 	readonly spread: Decimal;
 	readonly score: number;
 }
+
+/**
+ * Detailed profit breakdown for an arbitrage opportunity.
+ *
+ * Invariants (maintained by `calcArbProfit`):
+ * - net = gross - totalFees
+ * - roiPct = (net / totalCost) * 100
+ * - totalFees >= 0
+ */
+export interface ArbProfitBreakdown {
+	readonly gross: Decimal;
+	readonly totalCost: Decimal;
+	readonly totalFees: Decimal;
+	readonly net: Decimal;
+	readonly roiPct: Decimal;
+}

@@ -6,6 +6,7 @@ import { conditionId } from "../shared/identifiers.js";
 import { isErr, isOk } from "../shared/result.js";
 import { FakeClock } from "../shared/time.js";
 import { MarketCatalog } from "./market-catalog.js";
+import type { MarketProviders } from "./market-catalog.js";
 import type { MarketInfo } from "./types.js";
 
 const MARKET_A: MarketInfo = {
@@ -291,5 +292,197 @@ describe("MarketCatalog", () => {
 				}
 			});
 		});
+	});
+});
+
+describe("MarketCatalog discovery methods", () => {
+	const makeDeps = (overrides: Partial<MarketProviders> = {}): MarketProviders => ({
+		getMarket: async () => null,
+		searchMarkets: async () => [],
+		...overrides,
+	});
+
+	describe("getTrending", () => {
+		it("returns ok with markets from provider", async () => {
+			const deps = makeDeps({ getTrending: async () => [MARKET_A, MARKET_B] });
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getTrending(10);
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) expect(result.value).toHaveLength(2);
+		});
+
+		it("returns err when provider not implemented", async () => {
+			const catalog = new MarketCatalog(makeDeps());
+			const result = await catalog.getTrending(10);
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) expect(result.error.code).toBe("NOT_SUPPORTED");
+		});
+	});
+
+	describe("getTopByVolume", () => {
+		it("returns ok with markets from provider", async () => {
+			const deps = makeDeps({ getTopByVolume: async () => [MARKET_A] });
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getTopByVolume(5);
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) expect(result.value).toHaveLength(1);
+		});
+
+		it("returns err when provider not implemented", async () => {
+			const catalog = new MarketCatalog(makeDeps());
+			const result = await catalog.getTopByVolume(5);
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) expect(result.error.code).toBe("NOT_SUPPORTED");
+		});
+	});
+
+	describe("getTopByLiquidity", () => {
+		it("returns ok with markets from provider", async () => {
+			const deps = makeDeps({ getTopByLiquidity: async () => [MARKET_B] });
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getTopByLiquidity(3);
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) expect(result.value).toHaveLength(1);
+		});
+
+		it("returns err when provider not implemented", async () => {
+			const catalog = new MarketCatalog(makeDeps());
+			const result = await catalog.getTopByLiquidity(3);
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) expect(result.error.code).toBe("NOT_SUPPORTED");
+		});
+	});
+
+	describe("getByCategory", () => {
+		it("returns ok with markets from provider", async () => {
+			const deps = makeDeps({ getByCategory: async () => [MARKET_A, MARKET_B] });
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getByCategory("weather");
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) expect(result.value).toHaveLength(2);
+		});
+
+		it("returns err when provider not implemented", async () => {
+			const catalog = new MarketCatalog(makeDeps());
+			const result = await catalog.getByCategory("weather");
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) expect(result.error.code).toBe("NOT_SUPPORTED");
+		});
+	});
+
+	describe("getActiveEvents", () => {
+		it("returns ok with markets from provider", async () => {
+			const deps = makeDeps({ getActiveEvents: async () => [MARKET_A] });
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getActiveEvents();
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) expect(result.value).toHaveLength(1);
+		});
+
+		it("returns err when provider not implemented", async () => {
+			const catalog = new MarketCatalog(makeDeps());
+			const result = await catalog.getActiveEvents();
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) expect(result.error.code).toBe("NOT_SUPPORTED");
+		});
+	});
+
+	it("returns err when provider throws", async () => {
+		const deps = makeDeps({
+			getTrending: async () => {
+				throw new Error("connection refused via econnrefused");
+			},
+		});
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getTrending(5);
+		expect(isErr(result)).toBe(true);
+	});
+
+	it("returns ok with empty array for empty results", async () => {
+		const deps = makeDeps({ getTrending: async () => [] });
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getTrending(5);
+		expect(isOk(result)).toBe(true);
+		if (isOk(result)) expect(result.value).toEqual([]);
+	});
+
+	it("validates limit >= 1", async () => {
+		const deps = makeDeps({ getTrending: async () => [MARKET_A] });
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getTrending(0);
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.code).toBe("INVALID_LIMIT");
+	});
+
+	it("rejects NaN limit", async () => {
+		const deps = makeDeps({ getTrending: async () => [MARKET_A] });
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getTrending(Number.NaN);
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.code).toBe("INVALID_LIMIT");
+	});
+
+	it("rejects Infinity limit", async () => {
+		const deps = makeDeps({ getTopByVolume: async () => [MARKET_A] });
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getTopByVolume(Number.POSITIVE_INFINITY);
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.code).toBe("INVALID_LIMIT");
+	});
+
+	it("rejects fractional limit", async () => {
+		const deps = makeDeps({ getTopByLiquidity: async () => [MARKET_A] });
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getTopByLiquidity(2.5);
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.code).toBe("INVALID_LIMIT");
+	});
+
+	it("rejects negative limit", async () => {
+		const deps = makeDeps({ getTrending: async () => [MARKET_A] });
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getTrending(-1);
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.code).toBe("INVALID_LIMIT");
+	});
+
+	it("rejects empty category string", async () => {
+		const deps = makeDeps({ getByCategory: async () => [MARKET_A] });
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getByCategory("");
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.code).toBe("INVALID_CATEGORY");
+	});
+
+	it("rejects whitespace-only category string", async () => {
+		const deps = makeDeps({ getByCategory: async () => [MARKET_A] });
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getByCategory("   ");
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.code).toBe("INVALID_CATEGORY");
+	});
+
+	it("classifies provider network errors as retryable", async () => {
+		const deps = makeDeps({
+			getTrending: async () => {
+				throw new Error("ENOTFOUND api.polymarket.com");
+			},
+		});
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getTrending(5);
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.category).toBe(ErrorCategory.Retryable);
+	});
+
+	it("classifies getMarket provider errors via classifyError", async () => {
+		const deps = makeDeps({
+			getMarket: async () => {
+				throw new Error("request timed out");
+			},
+		});
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getMarket(conditionId("cond-a"));
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.isRetryable).toBe(true);
 	});
 });

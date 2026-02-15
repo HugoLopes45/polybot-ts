@@ -29,6 +29,11 @@ export {
 	TradingError,
 	ErrorCategory,
 	classifyError,
+	isNetworkError,
+	isRateLimitError,
+	isAuthError,
+	isOrderError,
+	isInsufficientBalance,
 } from "./shared/index.js";
 
 // ── Lifecycle ────────────────────────────────────────────────────────
@@ -199,7 +204,8 @@ export {
 } from "./lib/ethereum/index.js";
 
 // ── Lib: HTTP ───────────────────────────────────────────────────────
-export { TokenBucketRateLimiter } from "./lib/http/index.js";
+export { TokenBucketRateLimiter, RateLimiterManager, polymarketPresets } from "./lib/http/index.js";
+export type { RateLimiterConfig, RateLimiterStats } from "./lib/http/index.js";
 
 // ── Market ──────────────────────────────────────────────────────────
 export {
@@ -212,7 +218,10 @@ export {
 	type OrderbookSnapshot,
 	type ScanResult,
 	type MarketProviders,
+	type ArbProfitBreakdown,
 	checkArbitrage,
+	calcArbProfit,
+	calcOptimalSize,
 	applyDelta,
 	bestAsk,
 	bestBid,
@@ -299,3 +308,59 @@ export type {
 	TokenInfo,
 	TokenResolverConfig,
 } from "./ctf/index.js";
+
+// ── Analytics ───────────────────────────────────────────────────────
+export {
+	KLineAggregator,
+	INTERVAL_MS,
+	// Price-only indicators
+	calcSMA,
+	calcEMA,
+	calcRSI,
+	calcBollingerBands,
+	// Volatility indicators
+	calcATR,
+	calcDonchian,
+	calcKeltner,
+	calcChandelier,
+	// Trend indicators
+	calcMACD,
+	calcADX,
+	calcAroon,
+	calcDEMA,
+	calcTRIX,
+	calcPSAR,
+	// Momentum indicators
+	calcStochastic,
+	calcWilliamsR,
+	calcCCI,
+	calcROC,
+	calcAO,
+	calcStochRSI,
+	// Volume indicators
+	calcOBV,
+	calcVWMA,
+	calcMFI,
+	calcADL,
+	calcCMF,
+	calcForceIndex,
+	calcNVI,
+	calcVPT,
+	calcPVO,
+	// Orderbook analytics
+	calcImbalanceRatio,
+	calcVWAP,
+	calcSpreadBps,
+	estimateSlippage,
+	calcBookDepth,
+	// Price history
+	PriceHistoryClient,
+	VALID_INTERVALS,
+} from "./analytics/index.js";
+export type {
+	Candle,
+	Interval,
+	PricePoint,
+	PriceInterval,
+	PriceHistoryProvider,
+} from "./analytics/index.js";

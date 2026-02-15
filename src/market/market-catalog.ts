@@ -13,6 +13,11 @@ import type { MarketInfo } from "./types.js";
 export interface MarketProviders {
 	getMarket(id: string): Promise<MarketInfo | null>;
 	searchMarkets(query: string): Promise<MarketInfo[]>;
+	getTrending?(limit: number): Promise<MarketInfo[]>;
+	getTopByVolume?(limit: number): Promise<MarketInfo[]>;
+	getTopByLiquidity?(limit: number): Promise<MarketInfo[]>;
+	getByCategory?(category: string): Promise<MarketInfo[]>;
+	getActiveEvents?(): Promise<MarketInfo[]>;
 }
 
 interface CacheEntry {
@@ -125,5 +130,82 @@ export class MarketCatalog {
 			// Cache write failure must not lose a successful API result
 		}
 		return ok(markets);
+	}
+
+	/** Returns trending markets from the provider. */
+	async getTrending(limit = 10): Promise<Result<MarketInfo[], TradingError>> {
+		const v = this.validateLimit(limit);
+		if (!v.ok) return v;
+		return this.callDiscovery(this.deps.getTrending, "getTrending", limit);
+	}
+
+	/** Returns top markets by trading volume. */
+	async getTopByVolume(limit = 10): Promise<Result<MarketInfo[], TradingError>> {
+		const v = this.validateLimit(limit);
+		if (!v.ok) return v;
+		return this.callDiscovery(this.deps.getTopByVolume, "getTopByVolume", limit);
+	}
+
+	/** Returns top markets by liquidity depth. */
+	async getTopByLiquidity(limit = 10): Promise<Result<MarketInfo[], TradingError>> {
+		const v = this.validateLimit(limit);
+		if (!v.ok) return v;
+		return this.callDiscovery(this.deps.getTopByLiquidity, "getTopByLiquidity", limit);
+	}
+
+	/** Returns markets in the given category. */
+	async getByCategory(category: string): Promise<Result<MarketInfo[], TradingError>> {
+		if (!category.trim()) {
+			return err(
+				new TradingError(
+					"Category must not be empty",
+					"INVALID_CATEGORY",
+					ErrorCategory.NonRetryable,
+					{ category },
+				),
+			);
+		}
+		return this.callDiscovery(this.deps.getByCategory, "getByCategory", category);
+	}
+
+	/** Returns all currently active event markets. */
+	async getActiveEvents(): Promise<Result<MarketInfo[], TradingError>> {
+		return this.callDiscovery(this.deps.getActiveEvents, "getActiveEvents");
+	}
+
+	private async callDiscovery<A extends unknown[]>(
+		method: ((...args: A) => Promise<MarketInfo[]>) | undefined,
+		methodName: string,
+		...args: A
+	): Promise<Result<MarketInfo[], TradingError>> {
+		if (!method) {
+			return err(
+				new TradingError(
+					`${methodName} is not supported by the configured provider`,
+					"NOT_SUPPORTED",
+					ErrorCategory.NonRetryable,
+				),
+			);
+		}
+		try {
+			const markets = await method.call(this.deps, ...args);
+			return ok(markets);
+		} catch (error) {
+			return err(classifyError(error));
+		}
+	}
+
+	private validateLimit(limit: number): Result<void, TradingError> {
+		if (!Number.isFinite(limit) || !Number.isInteger(limit) || limit < 1) {
+			return err(
+				new TradingError(
+					"Limit must be a positive integer >= 1",
+					"INVALID_LIMIT",
+					ErrorCategory.NonRetryable,
+					{ limit },
+				),
+			);
+		}
+		return ok(undefined);
 	}
 }
