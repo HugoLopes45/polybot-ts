@@ -4,7 +4,7 @@ import type { ClobOrderResponse, ClobProviders } from "../lib/clob/types.js";
 import { TokenBucketRateLimiter } from "../lib/http/rate-limiter.js";
 import { PendingState } from "../order/types.js";
 import { Decimal } from "../shared/decimal.js";
-import { OrderNotFoundError } from "../shared/errors.js";
+import { OrderNotFoundError, TimeoutError } from "../shared/errors.js";
 import { conditionId, marketTokenId } from "../shared/identifiers.js";
 import { MarketSide } from "../shared/market-side.js";
 import { isErr, isOk } from "../shared/result.js";
@@ -49,6 +49,20 @@ function makeExecutor(depsOverrides: Partial<ClobProviders> = {}) {
 		clock,
 	});
 	return { executor: new ClobExecutor(client, limiter), clock };
+}
+
+function makeExecutorWithTimeout(
+	requestTimeoutMs: number,
+	depsOverrides: Partial<ClobProviders> = {},
+) {
+	const clock = new FakeClock(1000);
+	const client = new ClobClient(makeDeps(depsOverrides));
+	const limiter = new TokenBucketRateLimiter({
+		capacity: 10,
+		refillRate: 10,
+		clock,
+	});
+	return { executor: new ClobExecutor(client, limiter, requestTimeoutMs), clock };
 }
 
 describe("ClobExecutor", () => {
@@ -135,7 +149,14 @@ describe("ClobExecutor", () => {
 	describe("cancel", () => {
 		it("delegates cancel to ClobClient", async () => {
 			let cancelledId: string | undefined;
+			const openResponse: ClobOrderResponse = {
+				orderId: "exch-cancel",
+				status: "OPEN",
+				filledSize: "0",
+				avgPrice: "",
+			};
 			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(openResponse),
 				cancelOrder: async (id) => {
 					cancelledId = id;
 				},
@@ -161,7 +182,15 @@ describe("ClobExecutor", () => {
 		});
 
 		it("removes from activeOrders after successful cancel (BUG-5)", async () => {
-			const { executor } = makeExecutor();
+			const openResponse: ClobOrderResponse = {
+				orderId: "exch-cancel",
+				status: "OPEN",
+				filledSize: "0",
+				avgPrice: "",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(openResponse),
+			});
 
 			const submitResult = await executor.submit(testIntent());
 			expect(isOk(submitResult)).toBe(true);
@@ -250,6 +279,142 @@ describe("ClobExecutor", () => {
 		});
 	});
 
+	describe("activeOrderCount", () => {
+		it("returns 0 for fresh executor", async () => {
+			const { executor } = makeExecutor();
+			expect(executor.activeOrderCount()).toBe(0);
+		});
+
+		it("increments count on order submit for non-terminal orders", async () => {
+			const openResponse: ClobOrderResponse = {
+				orderId: "exch-open",
+				status: "OPEN",
+				filledSize: "0",
+				avgPrice: "",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(openResponse),
+			});
+			await executor.submit(testIntent());
+			expect(executor.activeOrderCount()).toBe(1);
+		});
+
+		it("decrements count after cancel", async () => {
+			const openResponse: ClobOrderResponse = {
+				orderId: "exch-cancel",
+				status: "OPEN",
+				filledSize: "0",
+				avgPrice: "",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(openResponse),
+			});
+			const result = await executor.submit(testIntent());
+			expect(isOk(result)).toBe(true);
+			if (!result.ok) return;
+
+			await executor.cancel(result.value.clientOrderId);
+			expect(executor.activeOrderCount()).toBe(0);
+		});
+	});
+
+	describe("terminal state cleanup (H4)", () => {
+		it("removes order from activeOrders when finalState is Filled", async () => {
+			const filledResponse: ClobOrderResponse = {
+				orderId: "exch-filled",
+				status: "MATCHED",
+				filledSize: "10",
+				avgPrice: "0.55",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(filledResponse),
+			});
+
+			const result = await executor.submit(testIntent());
+			expect(isOk(result)).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.finalState).toBe(PendingState.Filled);
+			expect(executor.activeOrderCount()).toBe(0);
+		});
+
+		it("removes order from activeOrders when finalState is Cancelled", async () => {
+			const cancelledResponse: ClobOrderResponse = {
+				orderId: "exch-cancelled",
+				status: "CANCELLED",
+				filledSize: "0",
+				avgPrice: "",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(cancelledResponse),
+			});
+
+			const result = await executor.submit(testIntent());
+			expect(isOk(result)).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.finalState).toBe(PendingState.Cancelled);
+			expect(executor.activeOrderCount()).toBe(0);
+		});
+
+		it("removes order from activeOrders when finalState is Expired", async () => {
+			const expiredResponse: ClobOrderResponse = {
+				orderId: "exch-expired",
+				status: "EXPIRED",
+				filledSize: "0",
+				avgPrice: "",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(expiredResponse),
+			});
+
+			const result = await executor.submit(testIntent());
+			expect(isOk(result)).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.finalState).toBe(PendingState.Expired);
+			expect(executor.activeOrderCount()).toBe(0);
+		});
+
+		it("keeps order in activeOrders when finalState is Open", async () => {
+			const openResponse: ClobOrderResponse = {
+				orderId: "exch-open",
+				status: "OPEN",
+				filledSize: "0",
+				avgPrice: "",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(openResponse),
+			});
+
+			const result = await executor.submit(testIntent());
+			expect(isOk(result)).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.finalState).toBe(PendingState.Open);
+			expect(executor.activeOrderCount()).toBe(1);
+		});
+
+		it("keeps order in activeOrders when finalState is PartiallyFilled", async () => {
+			const partialResponse: ClobOrderResponse = {
+				orderId: "exch-partial",
+				status: "OPEN",
+				filledSize: "5",
+				avgPrice: "0.55",
+			};
+			const { executor } = makeExecutor({
+				submitOrder: () => Promise.resolve(partialResponse),
+			});
+
+			const result = await executor.submit(testIntent());
+			expect(isOk(result)).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.finalState).toBe(PendingState.PartiallyFilled);
+			expect(executor.activeOrderCount()).toBe(1);
+		});
+	});
+
 	describe("avgPrice edge cases (HARD-18)", () => {
 		it("handles empty avgPrice string in response", async () => {
 			const emptyAvg: ClobOrderResponse = {
@@ -267,6 +432,55 @@ describe("ClobExecutor", () => {
 				// Empty string is falsy, so avgFillPrice should be null
 				expect(result.value.avgFillPrice).toBeNull();
 			}
+		});
+	});
+
+	describe("request timeout (M20)", () => {
+		it("does not timeout when request completes within timeout", async () => {
+			const { executor } = makeExecutorWithTimeout(100);
+			const result = await executor.submit(testIntent());
+			expect(isOk(result)).toBe(true);
+		});
+
+		it("times out submit request when exceeds timeout", async () => {
+			const slowSubmit = () =>
+				new Promise<ClobOrderResponse>((resolve) => setTimeout(() => resolve(VALID_RESPONSE), 200));
+			const { executor } = makeExecutorWithTimeout(50, { submitOrder: slowSubmit });
+			const result = await executor.submit(testIntent());
+			expect(isErr(result)).toBe(true);
+			if (!result.ok) {
+				expect(result.error).toBeInstanceOf(TimeoutError);
+				expect(result.error.code).toBe("TIMEOUT_ERROR");
+			}
+		});
+
+		it("times out cancel request when exceeds timeout", async () => {
+			const openResponse: ClobOrderResponse = {
+				orderId: "exch-cancel",
+				status: "OPEN",
+				filledSize: "0",
+				avgPrice: "",
+			};
+			const slowCancel = () => new Promise<void>((resolve) => setTimeout(() => resolve(), 200));
+			const { executor } = makeExecutorWithTimeout(50, {
+				submitOrder: () => Promise.resolve(openResponse),
+				cancelOrder: slowCancel,
+			});
+			const submitResult = await executor.submit(testIntent());
+			expect(isOk(submitResult)).toBe(true);
+			if (!submitResult.ok) return;
+
+			const cancelResult = await executor.cancel(submitResult.value.clientOrderId);
+			expect(isErr(cancelResult)).toBe(true);
+			if (!cancelResult.ok) {
+				expect(cancelResult.error).toBeInstanceOf(TimeoutError);
+			}
+		});
+
+		it("works without timeout when requestTimeoutMs not provided", async () => {
+			const { executor } = makeExecutor();
+			const result = await executor.submit(testIntent());
+			expect(isOk(result)).toBe(true);
 		});
 	});
 });
