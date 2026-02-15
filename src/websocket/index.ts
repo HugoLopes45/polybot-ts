@@ -13,3 +13,4 @@ export type { BufferedMessage, WsClientLike, WsManagerConfig } from "./ws-manage
 export { MarketFeed } from "./market-feed.js";
 export { UserFeed } from "./user-feed.js";
 export type { UserFeedConfig } from "./user-feed.js";
+export { MultiMarketManager } from "./multi-market.js";

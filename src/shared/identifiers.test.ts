@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	clientOrderId,
 	conditionId,
+	ethAddress,
 	exchangeOrderId,
 	idToString,
 	marketTokenId,
@@ -93,6 +94,26 @@ describe("branded identifiers", () => {
 				expect(idToString(clientOrderId(v))).toBe(v);
 				expect(idToString(exchangeOrderId(v))).toBe(v);
 			}
+		});
+	});
+
+	describe("ethAddress", () => {
+		it("creates valid EthAddress from 0x-prefixed string", () => {
+			const addr = ethAddress("0x1234abcdef");
+			expect(idToString(addr)).toBe("0x1234abcdef");
+		});
+
+		it("throws on non-0x-prefixed string", () => {
+			expect(() => ethAddress("not-an-address")).toThrow("must start with");
+		});
+
+		it("throws on empty string", () => {
+			expect(() => ethAddress("")).toThrow("EthAddress cannot be empty");
+		});
+
+		it("trims whitespace before validation", () => {
+			const addr = ethAddress("  0xabc123  ");
+			expect(idToString(addr)).toBe("0xabc123");
 		});
 	});
 });

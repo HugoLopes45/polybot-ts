@@ -17,3 +17,15 @@ export {
 export type { ArbProfitBreakdown } from "./types.js";
 export { MarketCatalog, type MarketProviders } from "./market-catalog.js";
 export { scan } from "./scanner.js";
+export { categorize, type MarketCategory } from "./categorization.js";
+export {
+	ArbitrageExecutor,
+	type ArbitrageExecutorConfig,
+	type ArbitrageExecutionResult,
+} from "./arbitrage-executor.js";
+export {
+	Rebalancer,
+	type RebalancerConfig,
+	type TokenBalance,
+	type RebalanceAction,
+} from "./rebalancer.js";

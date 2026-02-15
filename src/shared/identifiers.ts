@@ -20,6 +20,8 @@ export type MarketTokenId = Brand<string, "MarketTokenId">;
 export type ClientOrderId = Brand<string, "ClientOrderId">;
 /** Exchange-assigned order identifier returned after submission. */
 export type ExchangeOrderId = Brand<string, "ExchangeOrderId">;
+/** Ethereum address (0x...) for wallet identification. */
+export type EthAddress = Brand<string, "EthAddress">;
 
 // ── Factory functions with validation ────────────────────────────────
 
@@ -51,11 +53,23 @@ export function exchangeOrderId(value: string): ExchangeOrderId {
 	return createBrandedId(value, "ExchangeOrderId");
 }
 
+/** Create a validated EthAddress from a raw string. Throws if empty or invalid format. */
+export function ethAddress(value: string): EthAddress {
+	const trimmed = value.trim();
+	if (trimmed.length === 0) {
+		throw new Error("EthAddress cannot be empty");
+	}
+	if (!trimmed.startsWith("0x")) {
+		throw new Error(`EthAddress must start with "0x", got: ${trimmed}`);
+	}
+	return trimmed as EthAddress;
+}
+
 // ── Utility: extract raw string ──────────────────────────────────────
 
 /** Extract the raw string from any branded identifier type. */
 export function idToString(
-	id: ConditionId | MarketTokenId | ClientOrderId | ExchangeOrderId,
+	id: ConditionId | MarketTokenId | ClientOrderId | ExchangeOrderId | EthAddress,
 ): string {
 	return id as string;
 }

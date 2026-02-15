@@ -27,6 +27,7 @@ export {
 	isBlocked,
 } from "./types.js";
 
+export { ConditionalGuard, NotGuard, OrGuard } from "./combinators.js";
 export { GuardPipeline } from "./guard-pipeline.js";
 
 export { BalanceGuard } from "./guards/balance.js";
