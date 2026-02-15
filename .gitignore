@@ -1,47 +1,257 @@
-# ── Dependencies ─────────────────────────────────────
-node_modules/
-.pnp
-.pnp.*
+# ==============================================================================
+# Universal .gitignore
+# Covers: Node/JS/TS, Python, Rust, Go, Java, C/C++, .NET, Ruby, PHP, Swift,
+#         all major OS, editors, AI tools, CI, containers, secrets, and more.
+# ==============================================================================
 
-# ── Build output ─────────────────────────────────────
-dist/
+# ── OS artifacts ─────────────────────────────────────
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+.fseventsd
+Icon?
+.DocumentRevisions-V100
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+[Dd]esktop.ini
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ── Editor & IDE configs ─────────────────────────────
+
+# JetBrains (IntelliJ, WebStorm, PyCharm, CLion, RustRover, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
 out/
-build/
-*.tsbuildinfo
 
-# ── Test & coverage ──────────────────────────────────
-coverage/
-.nyc_output/
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# Vim / Neovim
+*.swp
+*.swo
+*.swn
+*~
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+tags
+
+# Emacs
+\#*\#
+*.elc
+.#*
+auto-save-list
+tramp
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Eclipse
+.project
+.classpath
+.settings/
+.metadata/
+
+# Fleet
+.fleet/
+
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ── AI tooling & agents ──────────────────────────────
+CLAUDE.md
+.claude/
+.forge/
+.cursor/
+.windsurf/
+.aider*
+.codeium/
+.continue/
+.copilot/
+.tabnine/
+.sourcegraph/
+.cody/
+.amazonq/
+.codex/
+.supermaven/
+.augment/
+.github/copilot/
+
+# ── Internal planning & research docs ────────────────
+PRD.md
+IMPLEMENTATION_GUIDE.md
+*_PLAN.md
+PLAN.md
+LEARNINGS_*.md
+*_VISION.md
 
 # ── Environment & secrets ────────────────────────────
 .env
 .env.*
 !.env.example
+!.env.template
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+*.keystore
+credentials.json
+secrets.json
+secret.json
+service-account*.json
+*-credentials.json
+*.secret
+.htpasswd
+.netrc
+.npmrc.local
 
-# ── AI tooling (internal) ────────────────────────────
-CLAUDE.md
+# ── Dependencies ─────────────────────────────────────
 
-# ── Internal planning docs ───────────────────────────
-PRD.md
-IMPLEMENTATION_GUIDE.md
+# Node / JavaScript / TypeScript
+node_modules/
+.pnp
+.pnp.*
+.yarn/
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+bower_components/
+jspm_packages/
+web_modules/
 
-# ── OS artifacts ─────────────────────────────────────
-.DS_Store
-Thumbs.db
-Desktop.ini
-._*
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+.Python
+lib/python*/
+share/python*/
+pyvenv.cfg
 
-# ── Editor & IDE configs ────────────────────────────
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-*.sublime-project
-*.sublime-workspace
-.project
-.classpath
-.settings/
+# Ruby
+vendor/bundle/
+.bundle/
+
+# PHP
+vendor/
+composer.phar
+
+# Go
+vendor/
+go.work
+
+# Rust
+target/
+
+# Java / Kotlin / Scala
+*.class
+*.jar
+*.war
+*.ear
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+build/
+
+# .NET / C#
+[Bb]in/
+[Oo]bj/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+packages/
+*.nupkg
+
+# Swift / CocoaPods / Carthage
+Pods/
+Carthage/Build/
+Carthage/Checkouts/
+*.xcodeproj/xcuserdata/
+*.playground/
+
+# ── Build output ─────────────────────────────────────
+dist/
+out/
+build/
+_build/
+*.tsbuildinfo
+*.js.map
+*.d.ts.map
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+*.wasm
+
+# ── Test & coverage ──────────────────────────────────
+coverage/
+.nyc_output/
+test-results/
+junit.xml
+*.lcov
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+pytestdebug.log
+.hypothesis/
+nosetests.xml
+.benchmarks/
 
 # ── Logs ─────────────────────────────────────────────
 *.log
@@ -51,8 +261,9 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# ── Runtime & cache ──────────────────────────────────
+# ── Runtime, cache & temp ────────────────────────────
 *.pid
 *.seed
 *.pid.lock
@@ -61,11 +272,80 @@ lerna-debug.log*
 .turbo/
 .eslintcache
 .stylelintcache
-
-# ── Package tarballs ─────────────────────────────────
-*.tgz
-
-# ── Temp files ───────────────────────────────────────
+.biome/
+.nx/
+.next/
+.nuxt/
+.output/
+.vercel/
+.netlify/
+.serverless/
+.dynamodb/
+.fusebox/
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
 tmp/
 temp/
 *.tmp
+*.bak
+*.orig
+*.rej
+
+# ── Virtual environments ─────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.conda/
+*.conda
+.virtualenvs/
+
+# ── Package tarballs & archives ──────────────────────
+*.tgz
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.zip
+*.rar
+*.7z
+
+# ── Docker ───────────────────────────────────────────
+.dockerignore.bak
+docker-compose.override.yml
+docker-compose.override.yaml
+
+# ── Terraform / IaC ──────────────────────────────────
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# ── Databases ────────────────────────────────────────
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.sql.gz
+dump.rdb
+
+# ── CI / misc ────────────────────────────────────────
+.node_repl_history
+.yarn-integrity
+*.patch
+.patch
+.npm/
+.eslintcache
+.grunt
+.lock-wscript
+*.prof
+*.heapsnapshot
+.clinic/
