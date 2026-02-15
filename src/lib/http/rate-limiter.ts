@@ -1,4 +1,4 @@
-import { ConfigError } from "../../shared/errors.js";
+import { ConfigError, RateLimitError } from "../../shared/errors.js";
 import type { Clock } from "../../shared/time.js";
 
 /**
@@ -106,9 +106,11 @@ export class TokenBucketRateLimiter {
 
 	/**
 	 * Waits until a token becomes available, then acquires it.
+	 * @param timeoutMs - Maximum time to wait for a token (default: 30000ms)
 	 * @returns Promise that resolves when a token is acquired.
+	 * @throws RateLimitError if timeout expires before token becomes available.
 	 */
-	waitForToken(): Promise<void> {
+	waitForToken(timeoutMs = 30000): Promise<void> {
 		if (this.rawTryAcquire()) {
 			this._hits++;
 			return Promise.resolve();
@@ -117,13 +119,17 @@ export class TokenBucketRateLimiter {
 		const startMs = this.clock.now();
 		this._waits++;
 
-		return new Promise<void>((resolve) => {
+		return new Promise<void>((resolve, reject) => {
 			const interval = setInterval(() => {
+				const elapsed = this.clock.now() - startMs;
 				if (this.rawTryAcquire()) {
 					clearInterval(interval);
 					this._hits++;
-					this._totalWaitMs += this.clock.now() - startMs;
+					this._totalWaitMs += elapsed;
 					resolve();
+				} else if (elapsed >= timeoutMs) {
+					clearInterval(interval);
+					reject(new RateLimitError("Timeout waiting for rate limit token", timeoutMs));
 				}
 			}, 10);
 		});

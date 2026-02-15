@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ConfigError } from "../../shared/errors.js";
+import { ConfigError, RateLimitError } from "../../shared/errors.js";
 import { FakeClock } from "../../shared/time.js";
 import { TokenBucketRateLimiter } from "./rate-limiter.js";
 
@@ -170,5 +170,44 @@ describe("TokenBucketRateLimiter", () => {
 		// Allow polling interval to fire and resolve
 		await promise;
 		expect(resolved).toBe(true);
+	});
+
+	describe("waitForToken timeout", () => {
+		it("rejects with RateLimitError when timeout expires", async () => {
+			const { limiter, clock } = createLimiter(1, 0);
+			limiter.tryAcquire();
+			expect(limiter.availableTokens()).toBe(0);
+
+			const promise = limiter.waitForToken(100);
+			clock.advance(100);
+			await expect(promise).rejects.toThrow(RateLimitError);
+		});
+
+		it("resolves before timeout when token becomes available", async () => {
+			const { limiter, clock } = createLimiter(1, 10);
+			limiter.tryAcquire();
+			expect(limiter.availableTokens()).toBe(0);
+
+			const promise = limiter.waitForToken(10000);
+			clock.advance(200);
+			await promise;
+			expect(limiter.availableTokens()).toBe(0);
+		});
+
+		it("uses default timeout of 30000ms", async () => {
+			const { limiter, clock } = createLimiter(1, 0);
+			limiter.tryAcquire();
+
+			const promise = limiter.waitForToken();
+			clock.advance(30000);
+			await expect(promise).rejects.toThrow(RateLimitError);
+		});
+
+		it("allows zero timeout for immediate check", async () => {
+			const { limiter } = createLimiter(1, 0);
+			limiter.tryAcquire();
+
+			await expect(limiter.waitForToken(0)).rejects.toThrow(RateLimitError);
+		});
 	});
 });

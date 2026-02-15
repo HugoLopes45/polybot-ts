@@ -231,6 +231,33 @@ describe("PaperExecutor", () => {
 			expect(history).toHaveLength(1);
 			expect(history[0]?.result.finalState).toBe(PendingState.Cancelled);
 		});
+
+		it("bounds fill history when maxFillHistory is exceeded", async () => {
+			const executor = new PaperExecutor({ maxFillHistory: 3 });
+			await executor.submit(testIntent({ price: d("0.10") }));
+			await executor.submit(testIntent({ price: d("0.20") }));
+			await executor.submit(testIntent({ price: d("0.30") }));
+			await executor.submit(testIntent({ price: d("0.40") }));
+			await executor.submit(testIntent({ price: d("0.50") }));
+
+			const history = executor.fillHistory();
+			expect(history).toHaveLength(3);
+			expect(history[0]?.intent.price.eq(d("0.30"))).toBe(true);
+			expect(history[1]?.intent.price.eq(d("0.40"))).toBe(true);
+			expect(history[2]?.intent.price.eq(d("0.50"))).toBe(true);
+		});
+
+		it("defaults maxFillHistory to 10000", async () => {
+			const executor = new PaperExecutor();
+			for (let i = 0; i < 10005; i++) {
+				await executor.submit(testIntent({ price: d(String(i)) }));
+			}
+
+			const history = executor.fillHistory();
+			expect(history).toHaveLength(10000);
+			expect(history[0]?.intent.price.eq(d("5"))).toBe(true);
+			expect(history[9999]?.intent.price.eq(d("10004"))).toBe(true);
+		});
 	});
 
 	describe("fillProbability validation (HARD-1)", () => {

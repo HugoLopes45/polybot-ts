@@ -10,7 +10,7 @@ import type { OrderResult } from "../order/types.js";
 import { Decimal } from "../shared/decimal.js";
 import { OrderRejectedError } from "../shared/errors.js";
 import type { TradingError } from "../shared/errors.js";
-import { clientOrderId, exchangeOrderId } from "../shared/identifiers.js";
+import { clientOrderId, exchangeOrderId, idToString } from "../shared/identifiers.js";
 import type { ClientOrderId } from "../shared/identifiers.js";
 import type { Result } from "../shared/result.js";
 import { err, ok } from "../shared/result.js";
@@ -36,6 +36,7 @@ export interface PaperExecutorConfig {
 	readonly slippageBps: number;
 	readonly fillDelayMs: number;
 	readonly clock: Clock;
+	readonly maxFillHistory: number;
 }
 
 /** Record of a simulated fill, capturing the intent, result, and timestamp. */
@@ -61,6 +62,7 @@ export class PaperExecutor implements Executor {
 			slippageBps: config?.slippageBps ?? 0,
 			fillDelayMs: config?.fillDelayMs ?? 0,
 			clock: config?.clock ?? SystemClock,
+			maxFillHistory: config?.maxFillHistory ?? 10000,
 		};
 		this.orderCounter = 0;
 		this.fills = [];
@@ -81,11 +83,7 @@ export class PaperExecutor implements Executor {
 				totalFilled: Decimal.zero(),
 				avgFillPrice: null,
 			};
-			this.fills.push({
-				intent,
-				result,
-				timestampMs: this.config.clock.now(),
-			});
+			this.pushFill({ intent, result, timestampMs: this.config.clock.now() });
 			return ok(result);
 		}
 
@@ -102,24 +100,20 @@ export class PaperExecutor implements Executor {
 			avgFillPrice: fillPrice,
 		};
 
-		this.activeOrders.set(coid as unknown as string, intent);
-		this.fills.push({
-			intent,
-			result,
-			timestampMs: this.config.clock.now(),
-		});
+		this.activeOrders.set(idToString(coid), intent);
+		this.pushFill({ intent, result, timestampMs: this.config.clock.now() });
 		return ok(result);
 	}
 
 	async cancel(orderId: ClientOrderId): Promise<Result<void, TradingError>> {
-		const key = orderId as unknown as string;
+		const key = idToString(orderId);
 		if (this.activeOrders.has(key)) {
 			this.activeOrders.delete(key);
 			return ok(undefined);
 		}
 		return err(
 			new OrderRejectedError("Unknown order", {
-				orderId: orderId as unknown as string,
+				orderId: idToString(orderId),
 			}),
 		);
 	}
@@ -133,5 +127,13 @@ export class PaperExecutor implements Executor {
 		if (this.config.slippageBps === 0) return Decimal.one();
 		const bps = Decimal.from(this.config.slippageBps).div(Decimal.from(10000));
 		return direction === OrderDirection.Buy ? Decimal.one().add(bps) : Decimal.one().sub(bps);
+	}
+
+	// O(n) shift at capacity — acceptable at maxFillHistory=10K; consider circular buffer if scaling beyond ~100K
+	private pushFill(record: FillRecord): void {
+		if (this.fills.length >= this.config.maxFillHistory) {
+			this.fills.shift();
+		}
+		this.fills.push(record);
 	}
 }
