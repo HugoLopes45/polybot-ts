@@ -4,8 +4,9 @@ import { EventDispatcher } from "../events/event-dispatcher.js";
 import type { SdkEvent } from "../events/sdk-events.js";
 import type { Executor } from "../execution/types.js";
 import { GuardPipeline } from "../risk/guard-pipeline.js";
+import type { KillSwitchGuard } from "../risk/guards/kill-switch.js";
+import type { MaxPositionsGuard } from "../risk/guards/max-positions.js";
 import type { EntryGuard, GuardVerdict } from "../risk/types.js";
-import { Decimal } from "../shared/decimal.js";
 import { conditionId, marketTokenId } from "../shared/identifiers.js";
 import type { ConditionId } from "../shared/identifiers.js";
 import type { MarketSide as MarketSideType } from "../shared/market-side.js";
@@ -17,6 +18,8 @@ import type { ExitPolicy, SignalDetector } from "../signal/types.js";
 import type { TickContext } from "./built-strategy.js";
 import type { Journal } from "./journal.js";
 import { StrategyBuilder, createSafeDispatcher } from "./strategy-builder.js";
+
+const FIXED_NOW = 1000000000000;
 
 function mockDetector(): SignalDetector<unknown, unknown> {
 	return {
@@ -150,7 +153,7 @@ describe("StrategyBuilder", () => {
 
 	describe("fluent chaining", () => {
 		it("should support full method chaining", () => {
-			const journal: Journal = { record: async () => {} };
+			const journal: Journal = { record: async () => {}, flush: async () => {} };
 
 			const strategy = StrategyBuilder.create()
 				.withDetector(mockDetector())
@@ -186,7 +189,7 @@ describe("StrategyBuilder", () => {
 			const CID = conditionId("test-condition");
 			return {
 				conditionId: CID,
-				nowMs: () => Date.now(),
+				nowMs: () => FIXED_NOW,
 				spot: () => Decimal.from(0.55),
 				oraclePrice: () => Decimal.from(0.55),
 				timeRemainingMs: () => 60000,
@@ -329,6 +332,173 @@ describe("StrategyBuilder", () => {
 
 			expect(captured).toHaveLength(1);
 			expect((captured[0] as { timestamp: number }).timestamp).toBe(42000);
+		});
+	});
+
+	describe("withConfig", () => {
+		it("should return a new builder instance", () => {
+			const builder1 = StrategyBuilder.create();
+			const builder2 = builder1.withConfig({ maxPositions: 10 });
+
+			expect(builder1).not.toBe(builder2);
+		});
+
+		it("should wire maxPositions to MaxPositionsGuard", () => {
+			const strategy = StrategyBuilder.create()
+				.withConfig({ maxPositions: 3 })
+				.withDetector(mockDetector())
+				.build();
+
+			const guardPipeline = strategy.getGuardPipeline();
+			const guards = guardPipeline.all();
+
+			const maxPosGuard = guards.find((g) => g.name === "MaxPositions") as
+				| MaxPositionsGuard
+				| undefined;
+			expect(maxPosGuard).toBeDefined();
+		});
+
+		it("should wire maxDailyLossUsdc to KillSwitchGuard", () => {
+			const strategy = StrategyBuilder.create()
+				.withConfig({ maxDailyLossUsdc: 100 })
+				.withDetector(mockDetector())
+				.build();
+
+			const guardPipeline = strategy.getGuardPipeline();
+			const guards = guardPipeline.all();
+
+			const killSwitchGuard = guards.find((g) => g.name === "KillSwitch") as
+				| KillSwitchGuard
+				| undefined;
+			expect(killSwitchGuard).toBeDefined();
+		});
+
+		it("should accept partial config and merge with defaults", () => {
+			const strategy = StrategyBuilder.create()
+				.withConfig({ name: "test-strategy" })
+				.withDetector(mockDetector())
+				.build();
+
+			expect(strategy).toBeDefined();
+		});
+
+		it("should support chaining with other builder methods", () => {
+			const strategy = StrategyBuilder.create()
+				.withConfig({ maxPositions: 7, maxDailyLossUsdc: 200 })
+				.withDetector(mockDetector())
+				.withJournal({ record: async () => {}, flush: async () => {} })
+				.build();
+
+			expect(strategy).toBeDefined();
+		});
+	});
+
+	describe("dryRun", () => {
+		const CID = conditionId("test-condition");
+		const TOKEN_ID = marketTokenId("YES", "test-market");
+
+		function createTickContext(): TickContext {
+			return {
+				conditionId: CID,
+				nowMs: () => FIXED_NOW,
+				spot: () => Decimal.from(0.55),
+				oraclePrice: () => Decimal.from(0.55),
+				timeRemainingMs: () => 60000,
+				bestBid: (_side: MarketSideType) => Decimal.from(0.54),
+				bestAsk: (_side: MarketSideType) => Decimal.from(0.56),
+				spread: (_side: MarketSideType) => Decimal.from(0.02),
+				spreadPct: (_side: MarketSideType) => 3.7,
+				openPositionCount: () => 0,
+				totalExposure: () => Decimal.zero(),
+				availableBalance: () => Decimal.from(1000),
+				dailyPnl: () => Decimal.zero(),
+				consecutiveLosses: () => 0,
+				hasPendingOrderFor: (_cid: ConditionId, _side: MarketSideType) => false,
+				lastTradeTimeMs: (_cid: ConditionId) => null,
+				oracleAgeMs: () => null,
+				bookAgeMs: () => null,
+			};
+		}
+
+		it("should return a new builder with dryRun flag", () => {
+			const builder1 = StrategyBuilder.create();
+			const builder2 = builder1.withDryRun(true);
+
+			expect(builder1).not.toBe(builder2);
+		});
+
+		it("should log orders instead of submitting when dryRun is true", async () => {
+			const mockExec = mockExecutor();
+			const submitSpy = vi.spyOn(mockExec, "submit");
+
+			const detector: SignalDetector<unknown, unknown> = {
+				name: "test-detector",
+				detectEntry: () => ({ signal: true }),
+				toOrder: () => ({
+					conditionId: CID,
+					tokenId: TOKEN_ID,
+					side: MarketSide.Yes,
+					direction: "buy" as const,
+					price: Decimal.from(0.55),
+					size: Decimal.from(10),
+				}),
+			};
+
+			const strategy = StrategyBuilder.create()
+				.withDryRun(true)
+				.withDetector(detector)
+				.withGuards(GuardPipeline.minimal())
+				.withExits(ExitPipeline.minimal())
+				.withExecutor(mockExec)
+				.build();
+
+			await strategy.tick(createTickContext());
+
+			expect(submitSpy).not.toHaveBeenCalled();
+		});
+
+		it("should default to dryRun: false", () => {
+			const strategy = StrategyBuilder.create()
+				.withDetector(mockDetector())
+				.withGuards(GuardPipeline.minimal())
+				.withExits(ExitPipeline.minimal())
+				.withExecutor(mockExecutor())
+				.build();
+
+			expect(strategy).toBeDefined();
+		});
+
+		it("should apply dryRun in buildProduction (H2)", async () => {
+			const mockExec = mockExecutor();
+			const submitSpy = vi.spyOn(mockExec, "submit");
+
+			const detector: SignalDetector<unknown, unknown> = {
+				name: "test-detector",
+				detectEntry: () => ({ signal: true }),
+				toOrder: () => ({
+					conditionId: CID,
+					tokenId: TOKEN_ID,
+					side: MarketSide.Yes,
+					direction: "buy" as const,
+					price: Decimal.from(0.55),
+					size: Decimal.from(10),
+				}),
+			};
+
+			const result = StrategyBuilder.create()
+				.withDryRun(true)
+				.withDetector(detector)
+				.withGuards(mockGuard())
+				.withExits(mockExit())
+				.withExecutor(mockExec)
+				.withFeeModel(fixedNotionalFee(10))
+				.buildProduction();
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				await result.value.tick(createTickContext());
+				expect(submitSpy).not.toHaveBeenCalled();
+			}
 		});
 	});
 });

@@ -15,6 +15,7 @@ import type { PositionManager } from "../position/position-manager.js";
 import type { SdkPosition } from "../position/sdk-position.js";
 import type { GuardPipeline } from "../risk/guard-pipeline.js";
 import type { GuardContext, GuardVerdict } from "../risk/types.js";
+import { Decimal } from "../shared/decimal.js";
 import type { TradingError } from "../shared/errors.js";
 import { isErr } from "../shared/result.js";
 import type { Clock } from "../shared/time.js";
@@ -50,6 +51,7 @@ export interface StrategyAggregates {
 	journal: Journal | null;
 	clock?: Clock | undefined;
 	warmupTicks?: number | undefined;
+	maxSlippageBps?: number | undefined;
 }
 
 /** Minimal view into strategy lifecycle state for the tick loop. */
@@ -74,6 +76,7 @@ export class BuiltStrategy {
 	private readonly journal: Journal | null;
 	private readonly clock: Clock;
 	private readonly warmupTicks: number;
+	private readonly maxSlippageBps: number | undefined;
 	private tickCount = 0;
 
 	private tickInProgress = false;
@@ -95,10 +98,21 @@ export class BuiltStrategy {
 		this.journal = deps.journal;
 		this.clock = deps.clock ?? SystemClock;
 		this.warmupTicks = deps.warmupTicks ?? 0;
+		this.maxSlippageBps = deps.maxSlippageBps;
+	}
+
+	/** Returns the guard pipeline. For testing purposes. */
+	getGuardPipeline(): GuardPipeline {
+		return this.guardPipeline;
 	}
 
 	public async tick(ctx: TickContext): Promise<void> {
 		if (this.tickInProgress) {
+			this.eventDispatcher.emitSdk({
+				type: "tick_dropped",
+				timestamp: this.clock.now(),
+				reason: "tick already in progress (re-entrancy guard)",
+			});
 			return;
 		}
 
@@ -247,6 +261,7 @@ export class BuiltStrategy {
 				});
 
 				const intent = this.buildSellIntent(position, ctx);
+
 				const result = await this.executor.submit(intent);
 
 				if (isErr(result)) {
@@ -256,6 +271,18 @@ export class BuiltStrategy {
 
 				const orderResult = result.value;
 				const exitPrice = orderResult.avgFillPrice ?? intent.price;
+
+				const exitSlippageBps = this.checkSlippage(intent.price, exitPrice);
+				if (exitSlippageBps !== null && exitSlippageBps > (this.maxSlippageBps ?? 0)) {
+					this.eventDispatcher.emitSdk({
+						type: "error_occurred",
+						timestamp: this.clock.now(),
+						code: "SLIPPAGE_WARNING",
+						message: `Exit slippage ${exitSlippageBps.toFixed(1)} bps exceeds max ${this.maxSlippageBps} bps (intent=${intent.price.toString()} fill=${exitPrice.toString()})`,
+						category: "non_retryable",
+					});
+				}
+
 				const closeResult = this.positionManager.close(
 					position.conditionId,
 					exitPrice,
@@ -316,6 +343,16 @@ export class BuiltStrategy {
 		}
 	}
 
+	private checkSlippage(intentPrice: Decimal, fillPrice: Decimal | null): number | null {
+		if (!this.maxSlippageBps || !fillPrice) {
+			return null;
+		}
+		if (intentPrice.isZero()) {
+			return null;
+		}
+		return intentPrice.sub(fillPrice).div(intentPrice).mul(Decimal.from(10000)).abs().toNumber();
+	}
+
 	private async processEntry(ctx: TickContext): Promise<void> {
 		try {
 			const signal = this.detector.detectEntry(ctx);
@@ -349,6 +386,17 @@ export class BuiltStrategy {
 
 			const orderResult = result.value;
 			const entryPrice = orderResult.avgFillPrice ?? intent.price;
+
+			const entrySlippageBps = this.checkSlippage(intent.price, entryPrice);
+			if (entrySlippageBps !== null && entrySlippageBps > (this.maxSlippageBps ?? 0)) {
+				this.eventDispatcher.emitSdk({
+					type: "error_occurred",
+					timestamp: this.clock.now(),
+					code: "SLIPPAGE_WARNING",
+					message: `Entry slippage ${entrySlippageBps.toFixed(1)} bps exceeds max ${this.maxSlippageBps} bps (intent=${intent.price.toString()} fill=${entryPrice.toString()})`,
+					category: "non_retryable",
+				});
+			}
 
 			const openResult = this.positionManager.open(
 				intent.conditionId,

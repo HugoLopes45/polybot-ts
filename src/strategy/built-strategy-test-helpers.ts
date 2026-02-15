@@ -117,6 +117,7 @@ export function createMockFeeModel(): FeeModel {
 export function createMockJournal(): Journal {
 	return {
 		record: vi.fn(async () => {}),
+		flush: vi.fn(async () => {}),
 	};
 }
 
@@ -152,8 +153,10 @@ export function openPosition(pm: PositionManager): PositionManager {
 
 export interface BuildOverrides {
 	positionManager?: PositionManager;
+	guardPipeline?: GuardPipeline;
 	guardVerdict?: GuardVerdict;
 	exitReason?: ExitReason | null;
+	exitPipeline?: ExitPipeline;
 	canOpen?: boolean;
 	canClose?: boolean;
 	executor?: Executor;
@@ -162,6 +165,8 @@ export interface BuildOverrides {
 	watchdog?: ConnectivityWatchdogType;
 	feeModel?: FeeModel;
 	clock?: import("../shared/time.js").Clock;
+	stateMachine?: StrategyStateMachine;
+	maxSlippageBps?: number;
 }
 
 export function buildWithDispatcher(
@@ -173,11 +178,15 @@ export function buildWithDispatcher(
 			positionManager: overrides.positionManager ?? PositionManager.create(),
 		},
 		risk: {
-			guardPipeline: createMockGuardPipeline(overrides.guardVerdict ?? { type: "allow" }),
-			exitPipeline: createMockExitPipeline(overrides.exitReason ?? null),
+			guardPipeline:
+				overrides.guardPipeline ??
+				createMockGuardPipeline(overrides.guardVerdict ?? { type: "allow" }),
+			exitPipeline: overrides.exitPipeline ?? createMockExitPipeline(overrides.exitReason ?? null),
 		},
 		lifecycle: {
-			stateMachine: createMockStateMachine(overrides.canOpen ?? true, overrides.canClose ?? true),
+			stateMachine:
+				overrides.stateMachine ??
+				createMockStateMachine(overrides.canOpen ?? true, overrides.canClose ?? true),
 			watchdog: overrides.watchdog ?? createMockWatchdog(),
 		},
 		monitor: {
@@ -189,6 +198,7 @@ export function buildWithDispatcher(
 		detector: overrides.detector ?? createMockDetector({ edge: 0.1, confidence: 0.8 }),
 		journal: overrides.journal === undefined ? createMockJournal() : overrides.journal,
 		...(overrides.clock !== undefined && { clock: overrides.clock }),
+		...(overrides.maxSlippageBps !== undefined && { maxSlippageBps: overrides.maxSlippageBps }),
 	});
 }
 

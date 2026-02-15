@@ -25,7 +25,8 @@ export type SdkEvent =
 	| GuardBlocked
 	| StateChanged
 	| WatchdogAlert
-	| ErrorOccurred;
+	| ErrorOccurred
+	| TickDropped;
 
 // ── Event types ──────────────────────────────────────────────────────
 
@@ -121,6 +122,12 @@ export interface ErrorOccurred {
 	readonly code: string;
 	readonly message: string;
 	readonly category: string;
+}
+
+export interface TickDropped {
+	readonly type: "tick_dropped";
+	readonly timestamp: number;
+	readonly reason: string;
 }
 
 // ── Type guard ───────────────────────────────────────────────────────

@@ -8,7 +8,6 @@ import {
 	CID,
 	Decimal,
 	EventDispatcher,
-	type ExitPipeline,
 	FILLED_RESULT,
 	type GuardPipeline,
 	type GuardVerdict,
@@ -29,6 +28,8 @@ import {
 	createMockWatchdog,
 	openPosition,
 } from "./built-strategy-test-helpers.js";
+
+const FIXED_NOW = 1000000000000;
 
 describe("BuiltStrategy — tick", () => {
 	let eventDispatcher: EventDispatcher;
@@ -304,7 +305,7 @@ describe("BuiltStrategy — tick", () => {
 			MarketSide.No,
 			Decimal.from(0.5),
 			Decimal.from(10),
-			Date.now() - 10000,
+			FIXED_NOW - 10000,
 		);
 		if (!opened.ok) throw new Error("Failed to open position");
 
@@ -471,7 +472,7 @@ describe("BuiltStrategy — tick", () => {
 			MarketSide.Yes,
 			Decimal.from(0.6),
 			Decimal.from(5),
-			Date.now() - 5000,
+			FIXED_NOW - 5000,
 		);
 		if (!opened.ok) throw new Error("Failed to open position");
 		pm = opened.value;
@@ -526,5 +527,228 @@ describe("BuiltStrategy — tick", () => {
 
 		const errors = sdkEvents("error_occurred") as Array<{ code: string }>;
 		expect(errors.some((e) => e.code === "SPOT_PRICE_UNAVAILABLE")).toBe(true);
+	});
+
+	describe("Error paths in tick()", () => {
+		it("should emit GUARD_THREW when guard pipeline throws", async () => {
+			const throwingGuardPipeline = {
+				evaluate: () => {
+					throw new Error("guard internal error");
+				},
+				isEmpty: () => false,
+				len: () => 1,
+				guardNames: () => ["throwing-guard"],
+				requireGuards: () => ({}) as GuardPipeline,
+				with: () => ({}) as GuardPipeline,
+			} as unknown as GuardPipeline;
+
+			const strategy = build({
+				guardPipeline: throwingGuardPipeline,
+				detector: createMockDetector(null),
+			});
+
+			await strategy.tick(createMockContext());
+
+			const errors = sdkEvents("error_occurred") as Array<{ code: string; message: string }>;
+			expect(errors.some((e) => e.code === "GUARD_THREW")).toBe(true);
+			expect(errors.find((e) => e.code === "GUARD_THREW")?.message).toContain(
+				"guard internal error",
+			);
+			expect(sdkEvents("position_opened")).toHaveLength(0);
+		});
+
+		it("should emit EXIT_PIPELINE_THREW when exit pipeline throws", async () => {
+			const pm = openPosition(PositionManager.create());
+			const throwingExitPipeline = {
+				evaluate: () => {
+					throw new Error("exit pipeline crash");
+				},
+				isEmpty: () => false,
+				len: () => 1,
+				policyNames: () => ["throwing-exit"],
+				requireExits: () => ({}) as ExitPipeline,
+				with: () => ({}) as ExitPipeline,
+			} as unknown as ExitPipeline;
+
+			const strategy = build({
+				positionManager: pm,
+				exitPipeline: throwingExitPipeline,
+				detector: createMockDetector(null),
+			});
+
+			await strategy.tick(createMockContext());
+
+			const errors = sdkEvents("error_occurred") as Array<{ code: string; message: string }>;
+			expect(errors.some((e) => e.code === "EXIT_PIPELINE_THREW")).toBe(true);
+			expect(errors.find((e) => e.code === "EXIT_PIPELINE_THREW")?.message).toContain(
+				"exit pipeline crash",
+			);
+			expect(sdkEvents("position_closed")).toHaveLength(0);
+		});
+
+		it("should emit INVALID_INTENT when detector returns zero size", async () => {
+			const zeroSizeDetector: SignalDetector<unknown, unknown> = {
+				name: "zero-size-detector",
+				detectEntry: () => ({ edge: 0.1 }),
+				toOrder: () => ({
+					conditionId: CID,
+					tokenId: TOKEN_ID,
+					side: MarketSide.Yes,
+					direction: "buy" as const,
+					price: Decimal.from(0.55),
+					size: Decimal.zero(),
+				}),
+			};
+
+			const strategy = build({ detector: zeroSizeDetector });
+			await strategy.tick(createMockContext());
+
+			const errors = sdkEvents("error_occurred") as Array<{ code: string; message: string }>;
+			expect(errors.some((e) => e.code === "INVALID_INTENT")).toBe(true);
+			expect(errors.find((e) => e.code === "INVALID_INTENT")?.message).toContain("invalid size");
+			expect(sdkEvents("position_opened")).toHaveLength(0);
+		});
+
+		it("should emit INVALID_INTENT when detector returns negative size", async () => {
+			const negSizeDetector: SignalDetector<unknown, unknown> = {
+				name: "neg-size-detector",
+				detectEntry: () => ({ edge: 0.1 }),
+				toOrder: () => ({
+					conditionId: CID,
+					tokenId: TOKEN_ID,
+					side: MarketSide.Yes,
+					direction: "buy" as const,
+					price: Decimal.from(0.55),
+					size: Decimal.from(-5),
+				}),
+			};
+
+			const strategy = build({ detector: negSizeDetector });
+			await strategy.tick(createMockContext());
+
+			const errors = sdkEvents("error_occurred") as Array<{ code: string; message: string }>;
+			expect(errors.some((e) => e.code === "INVALID_INTENT")).toBe(true);
+			expect(sdkEvents("position_opened")).toHaveLength(0);
+		});
+
+		it("should emit INVALID_INTENT when detector returns zero price", async () => {
+			const zeroPriceDetector: SignalDetector<unknown, unknown> = {
+				name: "zero-price-detector",
+				detectEntry: () => ({ edge: 0.1 }),
+				toOrder: () => ({
+					conditionId: CID,
+					tokenId: TOKEN_ID,
+					side: MarketSide.Yes,
+					direction: "buy" as const,
+					price: Decimal.zero(),
+					size: Decimal.from(10),
+				}),
+			};
+
+			const strategy = build({ detector: zeroPriceDetector });
+			await strategy.tick(createMockContext());
+
+			const errors = sdkEvents("error_occurred") as Array<{ code: string; message: string }>;
+			expect(errors.some((e) => e.code === "INVALID_INTENT")).toBe(true);
+			expect(errors.find((e) => e.code === "INVALID_INTENT")?.message).toContain("invalid price");
+			expect(sdkEvents("position_opened")).toHaveLength(0);
+		});
+
+		it("should emit INVALID_INTENT when detector returns negative price", async () => {
+			const negPriceDetector: SignalDetector<unknown, unknown> = {
+				name: "neg-price-detector",
+				detectEntry: () => ({ edge: 0.1 }),
+				toOrder: () => ({
+					conditionId: CID,
+					tokenId: TOKEN_ID,
+					side: MarketSide.Yes,
+					direction: "buy" as const,
+					price: Decimal.from(-0.5),
+					size: Decimal.from(10),
+				}),
+			};
+
+			const strategy = build({ detector: negPriceDetector });
+			await strategy.tick(createMockContext());
+
+			const errors = sdkEvents("error_occurred") as Array<{ code: string; message: string }>;
+			expect(errors.some((e) => e.code === "INVALID_INTENT")).toBe(true);
+			expect(sdkEvents("position_opened")).toHaveLength(0);
+		});
+
+		it("should emit POSITION_OPEN_FAILED when positionManager.open() returns error", async () => {
+			const executor = createMockExecutor();
+
+			const pmWithIssue = PositionManager.create();
+			const opened = pmWithIssue.open(
+				CID,
+				TOKEN_ID,
+				MarketSide.Yes,
+				Decimal.from(0.5),
+				Decimal.from(10),
+				FIXED_NOW,
+			);
+			if (!opened.ok) throw new Error("Failed to open");
+
+			const strategy = build({
+				positionManager: opened.value,
+				executor,
+			});
+
+			await strategy.tick(createMockContext());
+
+			const errors = sdkEvents("error_occurred") as Array<{ code: string }>;
+			expect(errors.some((e) => e.code === "POSITION_OPEN_FAILED")).toBe(true);
+		});
+
+		it("should block entries when watchdog reports stale data", async () => {
+			const staleWatchdog = {
+				touch: vi.fn(),
+				check: vi.fn(() => ({ status: "ok", stale: true })),
+				status: vi.fn(() => ({ status: "ok", stale: true, lastTouchMs: FIXED_NOW })),
+				shouldBlockEntries: vi.fn(() => true),
+			} as unknown as ReturnType<typeof createMockWatchdog>;
+
+			const strategy = build({
+				watchdog: staleWatchdog,
+				detector: createMockDetector({ edge: 0.1 }),
+			});
+
+			await strategy.tick(createMockContext());
+
+			const errors = sdkEvents("error_occurred") as Array<{ code: string }>;
+			expect(errors.some((e) => e.code === "WATCHDOG_ALERT")).toBe(true);
+			expect(sdkEvents("position_opened")).toHaveLength(0);
+		});
+
+		it("should survive all error paths and allow subsequent ticks to succeed", async () => {
+			let tickCount = 0;
+			const flakyDetector: SignalDetector<unknown, unknown> = {
+				name: "flaky",
+				detectEntry: () => {
+					tickCount++;
+					if (tickCount === 1) {
+						throw new Error("first tick detector crash");
+					}
+					return { edge: 0.1 };
+				},
+				toOrder: () => ({
+					conditionId: CID,
+					tokenId: TOKEN_ID,
+					side: MarketSide.Yes,
+					direction: "buy" as const,
+					price: Decimal.from(0.55),
+					size: Decimal.from(10),
+				}),
+			};
+
+			const strategy = build({ detector: flakyDetector });
+
+			await strategy.tick(createMockContext());
+			expect(sdkEvents("error_occurred").length).toBeGreaterThan(0);
+
+			await strategy.tick(createMockContext());
+			expect(sdkEvents("position_opened")).toHaveLength(1);
+		});
 	});
 });

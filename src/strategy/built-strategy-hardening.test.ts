@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fixedNotionalFee } from "../accounting/fee-model.js";
 import { ConnectivityWatchdog } from "../lifecycle/watchdog.js";
 import { conditionId, marketTokenId } from "../shared/identifiers.js";
-import { err } from "../shared/result.js";
+import { err, ok } from "../shared/result.js";
 import { FakeClock } from "../shared/time.js";
 import {
 	type BuildOverrides,
 	BuiltStrategy,
 	CID,
+	CLIENT_ID,
 	Decimal,
+	EXCHANGE_ID,
 	EventDispatcher,
 	type ExitPipeline,
 	type GuardPipeline,
@@ -31,6 +33,8 @@ import {
 	createMockWatchdog,
 	openPosition,
 } from "./built-strategy-test-helpers.js";
+
+const FIXED_NOW = 1000000000000;
 
 describe("BuiltStrategy — hardening", () => {
 	let eventDispatcher: EventDispatcher;
@@ -166,7 +170,7 @@ describe("BuiltStrategy — hardening", () => {
 			MarketSide.Yes,
 			Decimal.from(0.6),
 			Decimal.from(5),
-			Date.now() - 5000,
+			FIXED_NOW - 5000,
 		);
 		if (!opened.ok) throw new Error("Failed to open position");
 		pm = opened.value;
@@ -370,5 +374,176 @@ describe("BuiltStrategy — hardening", () => {
 		const exitSignalEntry = calls.find(([e]: [{ type: string }]) => e.type === "exit_signal");
 		expect(exitSignalEntry).toBeDefined();
 		expect((exitSignalEntry?.[0] as { reason: { type: string } }).reason.type).toBe("take_profit");
+	});
+
+	it("should warn on entry when slippage exceeds maxSlippageBps but still open position (H10)", async () => {
+		const executor = createMockExecutor(
+			ok({
+				clientOrderId: CLIENT_ID,
+				exchangeOrderId: EXCHANGE_ID,
+				finalState: "filled" as const,
+				totalFilled: Decimal.from(10),
+				avgFillPrice: Decimal.from(0.6),
+				tradeId: "trade-123",
+				fee: Decimal.from(0.1),
+			}),
+		);
+
+		const strategy = build({
+			executor,
+			maxSlippageBps: 500,
+		});
+
+		await strategy.tick(createMockContext({ spot: () => Decimal.from(0.3) }));
+
+		const errors = sdkEvents("error_occurred") as Array<{ code: string }>;
+		expect(errors.some((e) => e.code === "SLIPPAGE_WARNING")).toBe(true);
+		expect(sdkEvents("position_opened")).toHaveLength(1);
+	});
+
+	it("should allow entry when slippage is within maxSlippageBps (H10)", async () => {
+		const executor = createMockExecutor(
+			ok({
+				clientOrderId: CLIENT_ID,
+				exchangeOrderId: EXCHANGE_ID,
+				finalState: "filled" as const,
+				totalFilled: Decimal.from(10),
+				avgFillPrice: Decimal.from(0.56),
+				tradeId: "trade-123",
+				fee: Decimal.from(0.1),
+			}),
+		);
+
+		const strategy = build({
+			executor,
+			maxSlippageBps: 500,
+		});
+
+		await strategy.tick(createMockContext({ spot: () => Decimal.from(0.55) }));
+
+		const errors = sdkEvents("error_occurred") as Array<{ code: string }>;
+		expect(errors.some((e) => e.code === "SLIPPAGE_WARNING")).toBe(false);
+		expect(sdkEvents("position_opened")).toHaveLength(1);
+	});
+
+	it("should warn on exit when slippage exceeds maxSlippageBps but still close position (H10)", async () => {
+		const executor = createMockExecutor(
+			ok({
+				clientOrderId: CLIENT_ID,
+				exchangeOrderId: EXCHANGE_ID,
+				finalState: "filled" as const,
+				totalFilled: Decimal.from(10),
+				avgFillPrice: Decimal.from(0.5),
+				tradeId: "trade-123",
+				fee: Decimal.from(0.1),
+			}),
+		);
+
+		const pm = openPosition(PositionManager.create());
+		const strategy = build({
+			executor,
+			positionManager: pm,
+			exitReason: { type: "take_profit", roi: Decimal.from(0.2) },
+			detector: createMockDetector(null),
+			maxSlippageBps: 500,
+		});
+
+		await strategy.tick(createMockContext({ spot: () => Decimal.from(0.3) }));
+
+		const errors = sdkEvents("error_occurred") as Array<{ code: string }>;
+		expect(errors.some((e) => e.code === "SLIPPAGE_WARNING")).toBe(true);
+		expect(sdkEvents("position_closed")).toHaveLength(1);
+	});
+
+	it("should allow exit when slippage is within maxSlippageBps (H10)", async () => {
+		const executor = createMockExecutor(
+			ok({
+				clientOrderId: CLIENT_ID,
+				exchangeOrderId: EXCHANGE_ID,
+				finalState: "filled" as const,
+				totalFilled: Decimal.from(10),
+				avgFillPrice: Decimal.from(0.54),
+				tradeId: "trade-123",
+				fee: Decimal.from(0.1),
+			}),
+		);
+
+		const pm = openPosition(PositionManager.create());
+		const strategy = build({
+			executor,
+			positionManager: pm,
+			exitReason: { type: "take_profit", roi: Decimal.from(0.2) },
+			detector: createMockDetector(null),
+			maxSlippageBps: 500,
+		});
+
+		await strategy.tick(createMockContext({ spot: () => Decimal.from(0.55) }));
+
+		const errors = sdkEvents("error_occurred") as Array<{ code: string }>;
+		expect(errors.some((e) => e.code === "SLIPPAGE_WARNING")).toBe(false);
+		expect(sdkEvents("position_closed")).toHaveLength(1);
+	});
+
+	it("should emit tick_dropped when tick is already in progress (L2)", async () => {
+		const ctx = createMockContext();
+
+		let resolveFirst: (() => void) | null = null;
+		const blockingExecutor = {
+			submit: vi.fn(
+				() =>
+					new Promise<ReturnType<typeof ok>>((resolve) => {
+						resolveFirst = () =>
+							resolve(
+								ok({
+									clientOrderId: CLIENT_ID,
+									exchangeOrderId: EXCHANGE_ID,
+									finalState: "filled" as const,
+									totalFilled: Decimal.from(10),
+									avgFillPrice: Decimal.from(0.55),
+									tradeId: "t1",
+									fee: Decimal.from(0),
+								}),
+							);
+					}),
+			),
+			cancel: vi.fn(async () => ok(undefined)),
+		};
+
+		const blockingStrategy = build({ executor: blockingExecutor });
+		const firstTick = blockingStrategy.tick(ctx);
+		await blockingStrategy.tick(ctx);
+
+		const dropped = sdkEvents("tick_dropped") as Array<{ reason: string }>;
+		expect(dropped).toHaveLength(1);
+		expect(dropped[0]?.reason).toContain("re-entrancy");
+
+		resolveFirst?.();
+		await firstTick;
+	});
+
+	it("should allow entry/exit without maxSlippageBps configured (H10)", async () => {
+		const executor = createMockExecutor(
+			ok({
+				clientOrderId: CLIENT_ID,
+				exchangeOrderId: EXCHANGE_ID,
+				finalState: "filled" as const,
+				totalFilled: Decimal.from(10),
+				avgFillPrice: Decimal.from(0.99),
+				tradeId: "trade-123",
+				fee: Decimal.from(0.1),
+			}),
+		);
+
+		const pm = openPosition(PositionManager.create());
+		const strategy = build({
+			executor,
+			positionManager: pm,
+			exitReason: { type: "take_profit", roi: Decimal.from(0.2) },
+		});
+
+		await strategy.tick(createMockContext());
+
+		expect(sdkEvents("position_opened")).toHaveLength(1);
+		expect(sdkEvents("position_closed")).toHaveLength(1);
 	});
 });
