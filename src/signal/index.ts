@@ -25,3 +25,6 @@ export { StopLossExit } from "./exits/stop-loss.js";
 export { TakeProfitExit } from "./exits/take-profit.js";
 export { TimeExit } from "./exits/time-exit.js";
 export { TrailingStopExit } from "./exits/trailing-stop.js";
+
+export { DipArbDetector } from "./detectors/dip-arb-detector.js";
+export type { DipArbConfig, DipArbSignal } from "./detectors/dip-arb-detector.js";
