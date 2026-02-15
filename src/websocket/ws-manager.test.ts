@@ -1,15 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { WsState } from "../lib/websocket/types.js";
 import { NetworkError } from "../shared/errors.js";
 import type { TradingError } from "../shared/errors.js";
 import type { Result } from "../shared/result.js";
 import { err, ok } from "../shared/result.js";
 import { FakeClock } from "../shared/time.js";
+import { ReconnectionPolicy } from "./reconnection.js";
 import { WsManager } from "./ws-manager.js";
 
 class StubWsClient {
 	private messageHandler: ((data: string) => void) | null = null;
 	private closeHandler: ((code: number, reason: string) => void) | null = null;
+	private errorHandler: ((error: Error) => void) | null = null;
 	private state: WsState = "closed";
 	readonly sent: string[] = [];
 
@@ -39,7 +41,13 @@ class StubWsClient {
 		this.closeHandler = h;
 	}
 
-	onError(_h: (error: Error) => void): void {}
+	onError(h: (error: Error) => void): void {
+		this.errorHandler = h;
+	}
+
+	emitError(error: Error): void {
+		this.errorHandler?.(error);
+	}
 
 	simulateMessage(data: string): void {
 		this.messageHandler?.(data);
@@ -282,6 +290,72 @@ describe("WsManager", () => {
 		});
 	});
 
+	describe("generation filtering (M24)", () => {
+		it("drain returns messages from specified generation only", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client);
+			await manager.connect();
+
+			const gen1 = manager.generation;
+			client.simulateMessage(bookUpdateJson(1000));
+
+			await manager.reconnect();
+			const gen2 = manager.generation;
+			client.simulateMessage(bookUpdateJson(2000));
+			client.simulateMessage(bookUpdateJson(3000));
+
+			const gen1Messages = manager.drain(gen1);
+			const gen2Messages = manager.drain(gen2);
+
+			expect(gen1Messages).toHaveLength(0);
+			expect(gen2Messages).toHaveLength(2);
+		});
+
+		it("drain without generation filter returns all current buffer messages", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client);
+			await manager.connect();
+
+			client.simulateMessage(bookUpdateJson(1000));
+			client.simulateMessage(bookUpdateJson(2000));
+
+			const messages = manager.drain();
+			expect(messages).toHaveLength(2);
+		});
+
+		it("each buffered message has generation field accessible via BufferedMessage", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client);
+			await manager.connect();
+
+			client.simulateMessage(bookUpdateJson(1000));
+			const genAtMsg = manager.generation;
+
+			const messages = manager.drain(genAtMsg);
+			expect(messages).toHaveLength(1);
+			expect(messages[0]?.type).toBe("book_update");
+		});
+	});
+
+	describe("buffer optimization (M18)", () => {
+		it("uses splice instead of shift for batch dropping", async () => {
+			const client = new StubWsClient();
+			const manager = new WsManager(client, { maxBufferSize: 3 });
+			await manager.connect();
+
+			client.simulateMessage(bookUpdateJson(1000));
+			client.simulateMessage(bookUpdateJson(1001));
+			client.simulateMessage(bookUpdateJson(1002));
+			client.simulateMessage(bookUpdateJson(1003));
+			client.simulateMessage(bookUpdateJson(1004));
+
+			const messages = manager.drain();
+			expect(messages).toHaveLength(3);
+			expect((messages[0] as { timestampMs: number }).timestampMs).toBe(1002);
+			expect((messages[2] as { timestampMs: number }).timestampMs).toBe(1004);
+		});
+	});
+
 	describe("maxBufferSize", () => {
 		it("drops oldest messages when buffer exceeds maxBufferSize", async () => {
 			const client = new StubWsClient();
@@ -429,6 +503,149 @@ describe("WsManager", () => {
 
 			clock.advance(1_000_000_000);
 			expect(manager.checkHeartbeat()).toBe("healthy");
+		});
+	});
+
+	describe("reconnection policy", () => {
+		it("uses provided reconnection policy for retries", async () => {
+			const client = new StubWsClient();
+			await client.connect();
+
+			let reconnectAttempts = 0;
+			const originalConnect = client.connect.bind(client);
+			client.connect = vi.fn(async () => {
+				reconnectAttempts++;
+				if (reconnectAttempts < 3) {
+					throw new Error("connect failed");
+				}
+				await originalConnect();
+			});
+
+			const policy = new ReconnectionPolicy({
+				baseDelayMs: 10,
+				maxDelayMs: 100,
+				maxAttempts: 3,
+				jitterFactor: 0,
+			});
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { reconnectionPolicy: policy, clock });
+
+			await manager.reconnect();
+
+			expect(reconnectAttempts).toBe(3);
+		});
+
+		it("retries with exponential backoff delays", async () => {
+			const client = new StubWsClient();
+			await client.connect();
+
+			let reconnectAttempts = 0;
+			const originalConnect = client.connect.bind(client);
+			client.connect = vi.fn(async () => {
+				reconnectAttempts++;
+				if (reconnectAttempts < 3) {
+					throw new Error("connect failed");
+				}
+				await originalConnect();
+			});
+
+			const policy = new ReconnectionPolicy({
+				baseDelayMs: 10,
+				maxDelayMs: 100,
+				maxAttempts: 3,
+				jitterFactor: 0,
+			});
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { reconnectionPolicy: policy, clock });
+
+			await manager.reconnect();
+
+			expect(reconnectAttempts).toBe(3);
+		});
+
+		it("emits error when retry attempts exhausted", async () => {
+			const client = new StubWsClient();
+			await client.connect();
+
+			let connectAttempts = 0;
+			client.connect = vi.fn(async () => {
+				connectAttempts++;
+				throw new Error("permanent failure");
+			});
+
+			const policy = new ReconnectionPolicy({
+				baseDelayMs: 10,
+				maxDelayMs: 100,
+				maxAttempts: 3,
+				jitterFactor: 0,
+			});
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { reconnectionPolicy: policy, clock });
+
+			let errorReceived: Error | null = null;
+			client.onError((error) => {
+				errorReceived = error;
+			});
+
+			await manager.reconnect();
+
+			expect(connectAttempts).toBe(3);
+			expect(errorReceived).not.toBeNull();
+			expect(errorReceived?.message).toContain("reconnect");
+		});
+
+		it("succeeds on first attempt when no policy provided", async () => {
+			const client = new StubWsClient();
+			const connectSpy = vi.spyOn(client, "connect");
+
+			const manager = new WsManager(client);
+			await manager.connect();
+
+			expect(connectSpy).toHaveBeenCalledTimes(1);
+		});
+
+		it("succeeds on first attempt when policy allows immediate success", async () => {
+			const client = new StubWsClient();
+			const connectSpy = vi.spyOn(client, "connect");
+
+			const policy = new ReconnectionPolicy({
+				baseDelayMs: 10,
+				maxDelayMs: 100,
+				maxAttempts: 5,
+				jitterFactor: 0,
+			});
+			const manager = new WsManager(client, { reconnectionPolicy: policy });
+			await manager.connect();
+
+			expect(connectSpy).toHaveBeenCalledTimes(1);
+		});
+
+		it("resets policy before each reconnect attempt", async () => {
+			const client = new StubWsClient();
+			await client.connect();
+
+			let reconnectAttempts = 0;
+			const originalConnect = client.connect.bind(client);
+			client.connect = vi.fn(async () => {
+				reconnectAttempts++;
+				if (reconnectAttempts === 1) {
+					throw new Error("connect failed");
+				}
+				await originalConnect();
+			});
+
+			const policy = new ReconnectionPolicy({
+				baseDelayMs: 10,
+				maxDelayMs: 100,
+				maxAttempts: 5,
+				jitterFactor: 0,
+			});
+			const clock = new FakeClock(1000);
+			const manager = new WsManager(client, { reconnectionPolicy: policy, clock });
+
+			await manager.reconnect();
+
+			expect(reconnectAttempts).toBe(2);
 		});
 	});
 });

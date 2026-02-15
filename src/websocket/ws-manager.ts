@@ -3,6 +3,7 @@ import type { TradingError } from "../shared/errors.js";
 import type { Result } from "../shared/result.js";
 import { SystemClock } from "../shared/time.js";
 import type { Clock } from "../shared/time.js";
+import type { ReconnectionPolicy } from "./reconnection.js";
 import type { Subscription, WsMessage } from "./types.js";
 
 /** Configuration for the WebSocket connection manager. */
@@ -10,6 +11,7 @@ export interface WsManagerConfig {
 	heartbeatTimeoutMs?: number;
 	maxBufferSize?: number;
 	clock?: Clock;
+	reconnectionPolicy?: ReconnectionPolicy;
 }
 
 /**
@@ -24,6 +26,13 @@ export interface WsClientLike {
 	onMessage(handler: (data: string) => void): void;
 	onClose(handler: (code: number, reason: string) => void): void;
 	onError(handler: (error: Error) => void): void;
+	emitError?(error: Error): void;
+}
+
+/** Message with generation metadata for filtering. */
+export interface BufferedMessage {
+	readonly message: WsMessage;
+	readonly generation: number;
 }
 
 /**
@@ -35,19 +44,21 @@ export interface WsClientLike {
 export class WsManager {
 	private readonly client: WsClientLike;
 	private readonly subscriptions: Map<string, Subscription> = new Map();
-	private buffer: WsMessage[] = [];
+	private buffer: BufferedMessage[] = [];
 	private _generation = 0;
 	private readonly heartbeatTimeoutMs: number;
 	private readonly maxBufferSize: number;
 	private readonly clock: Clock;
 	private lastMessageAtMs: number | null = null;
 	private _replayErrors: TradingError[] = [];
+	private readonly reconnectionPolicy: ReconnectionPolicy | undefined;
 
 	constructor(client: WsClientLike, config: WsManagerConfig = {}) {
 		this.client = client;
 		this.heartbeatTimeoutMs = config.heartbeatTimeoutMs ?? -1;
 		this.maxBufferSize = config.maxBufferSize ?? -1;
 		this.clock = config.clock ?? SystemClock;
+		this.reconnectionPolicy = config.reconnectionPolicy ?? undefined;
 		this.client.onMessage((data) => this.handleMessage(data));
 	}
 
@@ -109,14 +120,54 @@ export class WsManager {
 	}
 
 	/** Drains and returns all buffered messages, clearing the buffer. */
-	drain(): WsMessage[] {
+	drain(generation?: number): WsMessage[] {
+		if (generation !== undefined) {
+			const filtered: WsMessage[] = [];
+			const remaining: BufferedMessage[] = [];
+			for (const m of this.buffer) {
+				if (m.generation === generation) {
+					filtered.push(m.message);
+				} else {
+					remaining.push(m);
+				}
+			}
+			this.buffer = remaining;
+			return filtered;
+		}
 		const messages = this.buffer;
 		this.buffer = [];
-		return messages;
+		return messages.map((m) => m.message);
 	}
 
 	/** Closes the connection, clears buffers, reconnects, and replays subscriptions. */
 	async reconnect(): Promise<void> {
+		const policy = this.reconnectionPolicy;
+		if (policy) {
+			policy.reset();
+			await this.reconnectWithPolicy(policy);
+		} else {
+			await this.doReconnect();
+		}
+	}
+
+	private async reconnectWithPolicy(policy: ReconnectionPolicy): Promise<void> {
+		let lastError: unknown;
+		while (policy.shouldRetry()) {
+			try {
+				await this.doReconnect();
+				return;
+			} catch (e: unknown) {
+				lastError = e;
+				const delay = policy.nextDelay();
+				await new Promise((resolve) => setTimeout(resolve, delay));
+			}
+		}
+		const detail = lastError instanceof Error ? lastError.message : String(lastError);
+		const error = new Error(`reconnect failed: max retry attempts exhausted (last: ${detail})`);
+		this.client.emitError?.(error);
+	}
+
+	private async doReconnect(): Promise<void> {
 		this.client.close();
 		this.buffer = [];
 		this.lastMessageAtMs = this.clock.now();
@@ -128,9 +179,10 @@ export class WsManager {
 	private handleMessage(data: string): void {
 		const parsed = parseMessage(data);
 		if (parsed !== null) {
-			this.buffer.push(parsed);
+			this.buffer.push({ message: parsed, generation: this._generation });
 			if (this.maxBufferSize > 0 && this.buffer.length > this.maxBufferSize) {
-				this.buffer.shift();
+				const dropCount = this.buffer.length - this.maxBufferSize;
+				this.buffer.splice(0, dropCount);
 			}
 			this.lastMessageAtMs = this.clock.now();
 		}

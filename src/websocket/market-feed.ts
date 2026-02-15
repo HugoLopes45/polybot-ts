@@ -5,6 +5,12 @@ import { Decimal } from "../shared/decimal.js";
 import type { ConditionId } from "../shared/identifiers.js";
 import type { BookUpdate, WsMessage } from "./types.js";
 
+export interface MarketFeedConfig {
+	maxBooks?: number;
+}
+
+const DEFAULT_MAX_BOOKS = 100;
+
 /**
  * Maintains per-condition orderbook snapshots from BookUpdate messages.
  *
@@ -13,10 +19,13 @@ import type { BookUpdate, WsMessage } from "./types.js";
  */
 export class MarketFeed {
 	private readonly watchdog: ConnectivityWatchdog;
+	private readonly maxBooks: number;
 	private readonly books: Map<string, OrderbookSnapshot> = new Map();
+	private readonly accessOrder: string[] = [];
 
-	constructor(watchdog: ConnectivityWatchdog) {
+	constructor(watchdog: ConnectivityWatchdog, config: MarketFeedConfig = {}) {
 		this.watchdog = watchdog;
+		this.maxBooks = config.maxBooks ?? DEFAULT_MAX_BOOKS;
 	}
 
 	/**
@@ -38,7 +47,42 @@ export class MarketFeed {
 	 * @returns The orderbook snapshot, or null if no data received yet
 	 */
 	getBook(cid: ConditionId): OrderbookSnapshot | null {
-		return this.books.get(cid as string) ?? null;
+		const key = cid as string;
+		const book = this.books.get(key) ?? null;
+		if (book !== null) {
+			this.touch(key);
+		}
+		return book;
+	}
+
+	/**
+	 * Explicitly removes an orderbook snapshot for a condition.
+	 * @param cid - The condition ID to remove
+	 */
+	removeBook(cid: ConditionId): void {
+		const key = cid as string;
+		this.books.delete(key);
+		const idx = this.accessOrder.indexOf(key);
+		if (idx !== -1) {
+			this.accessOrder.splice(idx, 1);
+		}
+	}
+
+	// O(n) indexOf+splice — acceptable at maxBooks=100; consider LinkedHashMap if scaling beyond ~1K
+	private touch(key: string): void {
+		const idx = this.accessOrder.indexOf(key);
+		if (idx !== -1) {
+			this.accessOrder.splice(idx, 1);
+		}
+		this.accessOrder.push(key);
+	}
+
+	private evictIfNeeded(): void {
+		while (this.books.size > this.maxBooks && this.accessOrder.length > 0) {
+			const lruKey = this.accessOrder.shift();
+			if (lruKey === undefined) break;
+			this.books.delete(lruKey);
+		}
 	}
 
 	private applyBookUpdate(update: BookUpdate): void {
@@ -47,6 +91,8 @@ export class MarketFeed {
 		const delta = toDelta(update);
 		const updated = applyDelta(existing, delta);
 		this.books.set(key, { ...updated, timestampMs: update.timestampMs });
+		this.touch(key);
+		this.evictIfNeeded();
 	}
 }
 

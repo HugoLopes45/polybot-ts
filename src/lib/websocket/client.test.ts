@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { isOk } from "../../shared/result.js";
 import { WsClient } from "./client.js";
@@ -102,5 +102,94 @@ describe("WsClient", () => {
 		await client.connect();
 		await expect(client.connect()).rejects.toThrow("already connecting or open");
 		client.close();
+	});
+
+	describe("handler removal", () => {
+		it("offMessage removes a specific handler", async () => {
+			wss.on("connection", (ws) => {
+				ws.send("test-msg");
+			});
+
+			const client = new WsClient(testConfig());
+			const handler1 = vi.fn();
+			const handler2 = vi.fn();
+
+			client.onMessage(handler1);
+			client.onMessage(handler2);
+			client.offMessage(handler1);
+
+			await client.connect();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(handler1).not.toHaveBeenCalled();
+			expect(handler2).toHaveBeenCalledWith("test-msg");
+			client.close();
+		});
+
+		it("offClose removes a specific handler", async () => {
+			const client = new WsClient(testConfig());
+			const handler1 = vi.fn();
+			const handler2 = vi.fn();
+
+			client.onClose(handler1);
+			client.onClose(handler2);
+			client.offClose(handler1);
+
+			await client.connect();
+			client.close();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(handler1).not.toHaveBeenCalled();
+			expect(handler2).toHaveBeenCalled();
+		});
+
+		it("offError removes a specific handler", async () => {
+			const client = new WsClient({
+				url: "ws://127.0.0.1:1",
+				pingIntervalMs: 30000,
+				pongTimeoutMs: 5000,
+			});
+			const handler1 = vi.fn();
+			const handler2 = vi.fn();
+
+			client.onError(handler1);
+			client.onError(handler2);
+			client.offError(handler1);
+
+			try {
+				await client.connect();
+			} catch {
+				// Expected connection failure
+			}
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(handler1).not.toHaveBeenCalled();
+			expect(handler2).toHaveBeenCalled();
+		});
+
+		it("clearHandlers removes all handlers", async () => {
+			wss.on("connection", (ws) => {
+				ws.send("msg");
+			});
+
+			const client = new WsClient(testConfig());
+			const msgHandler = vi.fn();
+			const closeHandler = vi.fn();
+			const errorHandler = vi.fn();
+
+			client.onMessage(msgHandler);
+			client.onClose(closeHandler);
+			client.onError(errorHandler);
+			client.clearHandlers();
+
+			await client.connect();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			client.close();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(msgHandler).not.toHaveBeenCalled();
+			expect(closeHandler).not.toHaveBeenCalled();
+			expect(errorHandler).not.toHaveBeenCalled();
+		});
 	});
 });

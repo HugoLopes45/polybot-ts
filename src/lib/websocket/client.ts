@@ -139,6 +139,55 @@ export class WsClient {
 		this.errorHandlers.push(handler);
 	}
 
+	/** Programmatically emits an error to all registered error handlers. */
+	emitError(error: Error): void {
+		for (const handler of this.errorHandlers) {
+			handler(error);
+		}
+	}
+
+	/**
+	 * Removes a specific message handler.
+	 * @param handler - The handler to remove
+	 */
+	offMessage(handler: WsMessageHandler): void {
+		const index = this.messageHandlers.indexOf(handler);
+		if (index !== -1) {
+			this.messageHandlers.splice(index, 1);
+		}
+	}
+
+	/**
+	 * Removes a specific close handler.
+	 * @param handler - The handler to remove
+	 */
+	offClose(handler: WsCloseHandler): void {
+		const index = this.closeHandlers.indexOf(handler);
+		if (index !== -1) {
+			this.closeHandlers.splice(index, 1);
+		}
+	}
+
+	/**
+	 * Removes a specific error handler.
+	 * @param handler - The handler to remove
+	 */
+	offError(handler: WsErrorHandler): void {
+		const index = this.errorHandlers.indexOf(handler);
+		if (index !== -1) {
+			this.errorHandlers.splice(index, 1);
+		}
+	}
+
+	/**
+	 * Removes all registered handlers.
+	 */
+	clearHandlers(): void {
+		this.messageHandlers.length = 0;
+		this.closeHandlers.length = 0;
+		this.errorHandlers.length = 0;
+	}
+
 	private startPing(): void {
 		this.pingTimer = setInterval(() => {
 			if (this.ws !== null && this.state === "open") {

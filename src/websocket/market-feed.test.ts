@@ -120,4 +120,96 @@ describe("MarketFeed", () => {
 		// No books stored
 		expect(feed.getBook(conditionId("cond-1"))).toBeNull();
 	});
+
+	it("evicts LRU entry when maxBooks exceeded", () => {
+		const clock = new FakeClock(1000);
+		const watchdog = new ConnectivityWatchdog(
+			{ warningMs: Duration.seconds(15), criticalMs: Duration.seconds(30) },
+			clock,
+		);
+		const feed = new MarketFeed(watchdog, { maxBooks: 3 });
+
+		// Add 3 books
+		const cid1 = conditionId("cond-1");
+		const cid2 = conditionId("cond-2");
+		const cid3 = conditionId("cond-3");
+		feed.processMessages([makeBookUpdate(cid1, 1000)]);
+		feed.processMessages([makeBookUpdate(cid2, 1001)]);
+		feed.processMessages([makeBookUpdate(cid3, 1002)]);
+
+		expect(feed.getBook(cid1)).not.toBeNull();
+		expect(feed.getBook(cid2)).not.toBeNull();
+		expect(feed.getBook(cid3)).not.toBeNull();
+
+		// Add 4th book - should evict LRU (cid1)
+		const cid4 = conditionId("cond-4");
+		feed.processMessages([makeBookUpdate(cid4, 1003)]);
+
+		expect(feed.getBook(cid1)).toBeNull(); // evicted
+		expect(feed.getBook(cid2)).not.toBeNull();
+		expect(feed.getBook(cid3)).not.toBeNull();
+		expect(feed.getBook(cid4)).not.toBeNull();
+	});
+
+	it("accessing book updates its LRU position", () => {
+		const clock = new FakeClock(1000);
+		const watchdog = new ConnectivityWatchdog(
+			{ warningMs: Duration.seconds(15), criticalMs: Duration.seconds(30) },
+			clock,
+		);
+		const feed = new MarketFeed(watchdog, { maxBooks: 3 });
+
+		const cid1 = conditionId("cond-1");
+		const cid2 = conditionId("cond-2");
+		const cid3 = conditionId("cond-3");
+		feed.processMessages([makeBookUpdate(cid1, 1000)]);
+		feed.processMessages([makeBookUpdate(cid2, 1001)]);
+		feed.processMessages([makeBookUpdate(cid3, 1002)]);
+
+		// Access cid1 to update its LRU position
+		feed.getBook(cid1);
+
+		// Add new book - should evict cid2 (least recently used after access)
+		const cid4 = conditionId("cond-4");
+		feed.processMessages([makeBookUpdate(cid4, 1003)]);
+
+		expect(feed.getBook(cid1)).not.toBeNull(); // still there (was accessed)
+		expect(feed.getBook(cid2)).toBeNull(); // evicted (was LRU before access)
+		expect(feed.getBook(cid3)).not.toBeNull();
+		expect(feed.getBook(cid4)).not.toBeNull();
+	});
+
+	it("removeBook explicitly removes a book", () => {
+		const { feed } = setup();
+		const cid = conditionId("cond-1");
+
+		feed.processMessages([makeBookUpdate(cid)]);
+		expect(feed.getBook(cid)).not.toBeNull();
+
+		feed.removeBook(cid);
+		expect(feed.getBook(cid)).toBeNull();
+	});
+
+	it("removeBook is no-op for unknown conditionId", () => {
+		const { feed } = setup();
+		expect(() => feed.removeBook(conditionId("unknown"))).not.toThrow();
+	});
+
+	it("uses default maxBooks of 100 when not specified", () => {
+		const clock = new FakeClock(1000);
+		const watchdog = new ConnectivityWatchdog(
+			{ warningMs: Duration.seconds(15), criticalMs: Duration.seconds(30) },
+			clock,
+		);
+		const feed = new MarketFeed(watchdog);
+
+		// Add 100 books
+		for (let i = 0; i < 100; i++) {
+			feed.processMessages([makeBookUpdate(conditionId(`cond-${i}`), 1000 + i)]);
+		}
+
+		// Add 101st book - should evict cond-0 (LRU)
+		feed.processMessages([makeBookUpdate(conditionId("cond-100"), 2000)]);
+		expect(feed.getBook(conditionId("cond-0"))).toBeNull();
+	});
 });
