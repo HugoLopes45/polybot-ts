@@ -396,3 +396,126 @@ describe("classifyError message matching precision", () => {
 		expect(e).toBeInstanceOf(NetworkError);
 	});
 });
+
+describe("classifyError HTTP status codes in context", () => {
+	it("classifies HTTP 429 in context as RateLimitError", () => {
+		const original = new Error("rate limit exceeded") as NodeJS.ErrnoException;
+		original.code = "HTTP_429";
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(RateLimitError);
+	});
+
+	it("classifies HTTP 429 in context.status as RateLimitError", () => {
+		const original = new Error("Too Many Requests") as NodeJS.ErrnoException;
+		original.code = "429";
+		(original as unknown as { context: { status: number } }).context = { status: 429 };
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(RateLimitError);
+	});
+
+	it("classifies HTTP 401 in context as AuthError", () => {
+		const original = new Error("Unauthorized") as NodeJS.ErrnoException;
+		original.code = "401";
+		(original as unknown as { context: { status: number } }).context = { status: 401 };
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(AuthError);
+	});
+
+	it("classifies HTTP 403 in context as AuthError", () => {
+		const original = new Error("Forbidden") as NodeJS.ErrnoException;
+		original.code = "403";
+		(original as unknown as { context: { status: number } }).context = { status: 403 };
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(AuthError);
+	});
+
+	it("classifies HTTP 500 in context as SystemError", () => {
+		const original = new Error("Internal Server Error") as NodeJS.ErrnoException;
+		original.code = "500";
+		(original as unknown as { context: { status: number } }).context = { status: 500 };
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(SystemError);
+	});
+
+	it("classifies HTTP 503 in context as SystemError", () => {
+		const original = new Error("Service Unavailable") as NodeJS.ErrnoException;
+		original.code = "503";
+		(original as unknown as { context: { status: number } }).context = { status: 503 };
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(SystemError);
+	});
+
+	it("classifies ETIMEDOUT error code before string matching", () => {
+		const original = new Error("timeout error message") as NodeJS.ErrnoException;
+		original.code = "ETIMEDOUT";
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(TimeoutError);
+	});
+
+	it("classifies ECONNREFUSED error code before string matching", () => {
+		const original = new Error("connection refused message") as NodeJS.ErrnoException;
+		original.code = "ECONNREFUSED";
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(NetworkError);
+	});
+
+	it("classifies 429 in cause as RateLimitError", () => {
+		const cause = new Error("upstream 429");
+		(cause as unknown as { context: { status: number } }).context = { status: 429 };
+		const original = new Error("downstream error", { cause });
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(RateLimitError);
+	});
+
+	it("classifies 401 in cause as AuthError", () => {
+		const cause = new Error("upstream unauthorized");
+		(cause as unknown as { context: { status: number } }).context = { status: 401 };
+		const original = new Error("downstream error", { cause });
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(AuthError);
+	});
+});
+
+describe("classifyError structured checks precedence", () => {
+	it("error.code takes precedence over message matching for ETIMEDOUT", () => {
+		const original = new Error("some random message") as NodeJS.ErrnoException;
+		original.code = "ETIMEDOUT";
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(TimeoutError);
+	});
+
+	it("error.code takes precedence over message matching for ECONNREFUSED", () => {
+		const original = new Error("some random message") as NodeJS.ErrnoException;
+		original.code = "ECONNREFUSED";
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(NetworkError);
+	});
+
+	it("context.status takes precedence over message for 429", () => {
+		const original = new Error("some message") as NodeJS.ErrnoException;
+		(original as unknown as { context: { status: number } }).context = { status: 429 };
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(RateLimitError);
+	});
+
+	it("context.status takes precedence over message for 401", () => {
+		const original = new Error("some message") as NodeJS.ErrnoException;
+		(original as unknown as { context: { status: number } }).context = { status: 401 };
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(AuthError);
+	});
+
+	it("does not match on status code 200 (OK)", () => {
+		const original = new Error("OK") as NodeJS.ErrnoException;
+		(original as unknown as { context: { status: number } }).context = { status: 200 };
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(SystemError);
+	});
+
+	it("does not match on status code 404 (falls through to string)", () => {
+		const original = new Error("Not Found");
+		(original as unknown as { context: { status: number } }).context = { status: 404 };
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(SystemError);
+	});
+});

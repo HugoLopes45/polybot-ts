@@ -105,41 +105,51 @@ export class RateLimitError extends TradingError {
 
 /** Non-retryable error for authentication/authorization failures. */
 export class AuthError extends TradingError {
-	constructor(message: string, context: Record<string, unknown> = {}) {
-		super(message, "AUTH_ERROR", ErrorCategory.NonRetryable, context);
+	constructor(message: string, context: Record<string, unknown> & TradingErrorOptions = {}) {
+		const { cause, ...rest } = context;
+		super(message, "AUTH_ERROR", ErrorCategory.NonRetryable, rest);
 		this.name = "AuthError";
+		if (cause !== undefined) this.cause = cause;
 	}
 }
 
 /** Non-retryable error when the exchange rejects an order. */
 export class OrderRejectedError extends TradingError {
-	constructor(message: string, context: Record<string, unknown> = {}) {
-		super(message, "ORDER_REJECTED", ErrorCategory.NonRetryable, context);
+	constructor(message: string, context: Record<string, unknown> & TradingErrorOptions = {}) {
+		const { cause, ...rest } = context;
+		super(message, "ORDER_REJECTED", ErrorCategory.NonRetryable, rest);
 		this.name = "OrderRejectedError";
+		if (cause !== undefined) this.cause = cause;
 	}
 }
 
 /** Non-retryable error when an order cannot be found in the local tracker. */
 export class OrderNotFoundError extends TradingError {
-	constructor(message: string, context: Record<string, unknown> = {}) {
-		super(message, "ORDER_NOT_FOUND", ErrorCategory.NonRetryable, context);
+	constructor(message: string, context: Record<string, unknown> & TradingErrorOptions = {}) {
+		const { cause, ...rest } = context;
+		super(message, "ORDER_NOT_FOUND", ErrorCategory.NonRetryable, rest);
 		this.name = "OrderNotFoundError";
+		if (cause !== undefined) this.cause = cause;
 	}
 }
 
 /** Non-retryable error when USDC balance is too low for the requested operation. */
 export class InsufficientBalanceError extends TradingError {
-	constructor(message: string, context: Record<string, unknown> = {}) {
-		super(message, "INSUFFICIENT_BALANCE", ErrorCategory.NonRetryable, context);
+	constructor(message: string, context: Record<string, unknown> & TradingErrorOptions = {}) {
+		const { cause, ...rest } = context;
+		super(message, "INSUFFICIENT_BALANCE", ErrorCategory.NonRetryable, rest);
 		this.name = "InsufficientBalanceError";
+		if (cause !== undefined) this.cause = cause;
 	}
 }
 
 /** Fatal error for invalid or missing configuration. */
 export class ConfigError extends TradingError {
-	constructor(message: string, context: Record<string, unknown> = {}) {
-		super(message, "CONFIG_ERROR", ErrorCategory.Fatal, context);
+	constructor(message: string, context: Record<string, unknown> & TradingErrorOptions = {}) {
+		const { cause, ...rest } = context;
+		super(message, "CONFIG_ERROR", ErrorCategory.Fatal, rest);
 		this.name = "ConfigError";
+		if (cause !== undefined) this.cause = cause;
 	}
 }
 
@@ -155,23 +165,55 @@ export class SystemError extends TradingError {
 
 // ── Classification helper ────────────────────────────────────────────
 
+/** Extract HTTP status from error context or cause chain */
+function getHttpStatus(error: Error): number | undefined {
+	const ctx = (error as unknown as { context?: { status?: number } }).context;
+	if (ctx?.status !== undefined && ctx.status >= 400) {
+		return ctx.status;
+	}
+	const cause = (error as unknown as { cause?: unknown }).cause;
+	if (cause instanceof Error) {
+		const causeCtx = (cause as unknown as { context?: { status?: number } }).context;
+		if (causeCtx?.status !== undefined && causeCtx.status >= 400) {
+			return causeCtx.status;
+		}
+	}
+	return undefined;
+}
+
 /** Classify an unknown error into the appropriate TradingError subtype by inspecting the message and error code. */
 export function classifyError(error: unknown): TradingError {
 	if (error instanceof TradingError) return error;
 	if (error instanceof Error) {
 		const msg = error.message.toLowerCase();
-		const code = (error as NodeJS.ErrnoException).code;
-		if (msg.includes("timeout") || msg.includes("timed out") || code === "ETIMEDOUT") {
+		const err = error as NodeJS.ErrnoException;
+		const code = err.code;
+
+		const httpStatus = getHttpStatus(error);
+		if (httpStatus === 429 || code === "429" || code === "HTTP_429") {
+			return new RateLimitError(error.message, 1000, { cause: error });
+		}
+		if (httpStatus === 401 || code === "401") {
+			return new AuthError(error.message, { cause: error });
+		}
+		if (httpStatus === 403 || code === "403") {
+			return new AuthError(error.message, { cause: error });
+		}
+		if (httpStatus === 500 || httpStatus === 502 || httpStatus === 503 || httpStatus === 504) {
+			return new SystemError(error.message, { cause: error });
+		}
+
+		if (code === "ETIMEDOUT") {
 			return new TimeoutError(error.message, { cause: error });
 		}
-		if (
-			msg.includes("econnrefused") ||
-			msg.includes("enotfound") ||
-			msg.includes("fetch failed") ||
-			code === "ECONNREFUSED" ||
-			code === "ENOTFOUND" ||
-			code === "ECONNRESET"
-		) {
+		if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ECONNRESET") {
+			return new NetworkError(error.message, { cause: error });
+		}
+
+		if (msg.includes("timeout") || msg.includes("timed out")) {
+			return new TimeoutError(error.message, { cause: error });
+		}
+		if (msg.includes("econnrefused") || msg.includes("enotfound") || msg.includes("fetch failed")) {
 			return new NetworkError(error.message, { cause: error });
 		}
 		if (msg.includes("rate limit") || msg.includes("429")) {
