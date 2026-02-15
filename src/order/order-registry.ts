@@ -5,7 +5,7 @@
  * and by market (conditionId). Supports TTL-based cleanup of terminal orders.
  */
 
-import type { ClientOrderId, ConditionId } from "../shared/identifiers.js";
+import type { ClientOrderId, ConditionId, ExchangeOrderId } from "../shared/identifiers.js";
 import { type Clock, SystemClock } from "../shared/time.js";
 import { isTerminal } from "./pending-state-machine.js";
 import type { PendingOrder, PendingState } from "./types.js";
@@ -77,6 +77,20 @@ export class OrderRegistry {
 		if (isTerminal(newState)) {
 			this.terminalAtMs.set(key, this.clock.now());
 		}
+	}
+
+	/**
+	 * Updates the exchange order ID for a tracked order.
+	 * @param clientOrderId - The client order ID to update
+	 * @param exchangeOrderId - The new exchange order ID
+	 */
+	updateExchangeOrderId(clientOrderId: ClientOrderId, exchangeOrderId: ExchangeOrderId): void {
+		const key = clientOrderId as string;
+		const order = this.orders.get(key);
+		if (!order) return;
+
+		const updated: PendingOrder = { ...order, exchangeOrderId };
+		this.orders.set(key, updated);
 	}
 
 	/**

@@ -20,3 +20,4 @@ export type { CancelHandler, CompleteHandler, FillHandler, OrderHandle } from ".
 export { OrderHandleBuilder } from "./order-handle-builder.js";
 export { OrderRegistry } from "./order-registry.js";
 export { OrderCoordinator } from "./order-coordinator.js";
+export { OrderTracker } from "./order-tracker.js";
