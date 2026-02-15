@@ -3,9 +3,9 @@ import { Decimal } from "../shared/decimal.js";
 
 /**
  * Bid/ask imbalance ratio: bidVolume / askVolume.
- * Returns > 1 when bids dominate, < 1 when asks dominate, zero for empty book.
+ * Returns > 1 when bids dominate, < 1 when asks dominate, null for degenerate state (zero ask volume).
  */
-export function calcImbalanceRatio(book: OrderbookSnapshot, depthLevels?: number): Decimal {
+export function calcImbalanceRatio(book: OrderbookSnapshot, depthLevels?: number): Decimal | null {
 	const bidLevels = depthLevels !== undefined ? book.bids.slice(0, depthLevels) : book.bids;
 	const askLevels = depthLevels !== undefined ? book.asks.slice(0, depthLevels) : book.asks;
 
@@ -19,7 +19,7 @@ export function calcImbalanceRatio(book: OrderbookSnapshot, depthLevels?: number
 		askVolume = askVolume.add(level.size);
 	}
 
-	if (askVolume.isZero()) return Decimal.zero();
+	if (askVolume.isZero()) return null;
 	return bidVolume.div(askVolume);
 }
 
@@ -61,17 +61,19 @@ export function calcSpreadBps(book: OrderbookSnapshot): Decimal | null {
 
 /**
  * Estimated price slippage for a given order size by walking the book.
- * Returns abs(VWAP - bestPrice). Zero if the order fits within the best level.
+ * Returns abs(VWAP - bestPrice), or null if book is empty or no fill possible.
  */
 export function estimateSlippage(
 	book: OrderbookSnapshot,
 	side: "buy" | "sell",
 	size: Decimal,
-): Decimal {
+): Decimal | null {
 	const levels = side === "buy" ? book.asks : book.bids;
-	if (levels.length === 0) return Decimal.zero();
+	if (levels.length === 0) return null;
 
-	const bestPrice = levels[0]?.price ?? Decimal.zero();
+	const firstLevel = levels[0];
+	if (!firstLevel) return null;
+	const bestPrice = firstLevel.price;
 	let remaining = size;
 	let totalNotional = Decimal.zero();
 	let totalFilled = Decimal.zero();
@@ -84,7 +86,7 @@ export function estimateSlippage(
 		remaining = remaining.sub(fillSize);
 	}
 
-	if (totalFilled.isZero()) return Decimal.zero();
+	if (totalFilled.isZero()) return null;
 	const vwap = totalNotional.div(totalFilled);
 	return vwap.sub(bestPrice).abs();
 }
@@ -92,14 +94,17 @@ export function estimateSlippage(
 /**
  * Total available depth (size) on one side of the book.
  * "buy" side reads asks (available for buying), "sell" reads bids.
+ * Returns null if the limited book is empty.
  */
 export function calcBookDepth(
 	book: OrderbookSnapshot,
 	side: "buy" | "sell",
 	priceLevels?: number,
-): Decimal {
+): Decimal | null {
 	const levels = side === "buy" ? book.asks : book.bids;
 	const limited = priceLevels !== undefined ? levels.slice(0, priceLevels) : levels;
+
+	if (limited.length === 0) return null;
 
 	let total = Decimal.zero();
 	for (const level of limited) {

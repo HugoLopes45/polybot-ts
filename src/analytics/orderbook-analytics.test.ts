@@ -32,16 +32,25 @@ describe("calcImbalanceRatio", () => {
 
 	it("returns > 1 when bid side is heavier", () => {
 		const book = makeBook([[0.5, 200]], [[0.51, 100]]);
-		expect(calcImbalanceRatio(book).toNumber()).toBeCloseTo(2.0, 5);
+		const ratio = calcImbalanceRatio(book);
+		expect(ratio).not.toBeNull();
+		expect(ratio?.toNumber()).toBeCloseTo(2.0, 5);
 	});
 
 	it("returns < 1 when ask side is heavier", () => {
 		const book = makeBook([[0.5, 50]], [[0.51, 100]]);
-		expect(calcImbalanceRatio(book).toNumber()).toBeCloseTo(0.5, 5);
+		const ratio = calcImbalanceRatio(book);
+		expect(ratio).not.toBeNull();
+		expect(ratio?.toNumber()).toBeCloseTo(0.5, 5);
 	});
 
-	it("returns zero for empty book", () => {
-		expect(calcImbalanceRatio(emptyBook).isZero()).toBe(true);
+	it("returns null for empty book", () => {
+		expect(calcImbalanceRatio(emptyBook)).toBeNull();
+	});
+
+	it("returns null when ask volume is zero", () => {
+		const book = makeBook([[0.5, 100]], []);
+		expect(calcImbalanceRatio(book)).toBeNull();
 	});
 
 	it("respects depthLevels parameter", () => {
@@ -56,9 +65,13 @@ describe("calcImbalanceRatio", () => {
 			],
 		);
 		// Only first level: 100/100 = 1
-		expect(calcImbalanceRatio(book, 1).toNumber()).toBeCloseTo(1.0, 5);
+		const ratio1 = calcImbalanceRatio(book, 1);
+		expect(ratio1).not.toBeNull();
+		expect(ratio1?.toNumber()).toBeCloseTo(1.0, 5);
 		// Both levels: 600/600 = 1
-		expect(calcImbalanceRatio(book, 2).toNumber()).toBeCloseTo(1.0, 5);
+		const ratio2 = calcImbalanceRatio(book, 2);
+		expect(ratio2).not.toBeNull();
+		expect(ratio2?.toNumber()).toBeCloseTo(1.0, 5);
 	});
 });
 
@@ -81,6 +94,12 @@ describe("calcVWAP", () => {
 	it("returns trade price for single trade", () => {
 		const trades = [{ price: Decimal.from("50"), size: Decimal.from("10") }];
 		expect(calcVWAP(trades)?.toString()).toBe("50");
+	});
+
+	it("returns null when all trade sizes are zero", () => {
+		const trades = [{ price: Decimal.from("50"), size: Decimal.zero() }];
+		const result = calcVWAP(trades);
+		expect(result).toBeNull();
 	});
 });
 
@@ -105,13 +124,20 @@ describe("calcSpreadBps", () => {
 		const askOnly = makeBook([], [[0.51, 100]]);
 		expect(calcSpreadBps(askOnly)).toBeNull();
 	});
+
+	it("returns null when mid-price is zero", () => {
+		const book = makeBook([[0, 100]], [[0, 100]]);
+		const spread = calcSpreadBps(book);
+		expect(spread).toBeNull();
+	});
 });
 
 describe("estimateSlippage", () => {
 	it("returns zero slippage for small order within first level", () => {
 		const book = makeBook([[0.5, 1000]], [[0.51, 1000]]);
 		const slippage = estimateSlippage(book, "buy", Decimal.from("10"));
-		expect(slippage.isZero()).toBe(true);
+		expect(slippage).not.toBeNull();
+		expect(slippage?.isZero()).toBe(true);
 	});
 
 	it("returns positive slippage for order spanning levels", () => {
@@ -126,14 +152,39 @@ describe("estimateSlippage", () => {
 		// Buy 100: 50@0.51 + 50@0.52 = VWAP 0.515
 		// Slippage = 0.515 - 0.51 = 0.005
 		const slippage = estimateSlippage(book, "buy", Decimal.from("100"));
-		expect(slippage.toNumber()).toBeCloseTo(0.005, 5);
+		expect(slippage).not.toBeNull();
+		expect(slippage?.toNumber()).toBeCloseTo(0.005, 5);
 	});
 
 	it("uses all available depth for oversized order", () => {
 		const book = makeBook([[0.5, 100]], [[0.51, 50]]);
 		// Buy 200 but only 50 available
 		const slippage = estimateSlippage(book, "buy", Decimal.from("200"));
-		expect(slippage.isZero()).toBe(true); // all at same price
+		expect(slippage).not.toBeNull();
+		expect(slippage?.isZero()).toBe(true); // all at same price
+	});
+
+	it("returns null when asks are empty (buy side)", () => {
+		const book = makeBook([[0.5, 100]], []);
+		expect(estimateSlippage(book, "buy", Decimal.from("10"))).toBeNull();
+	});
+
+	it("returns null when bids are empty (sell side)", () => {
+		const book = makeBook([], [[0.51, 100]]);
+		expect(estimateSlippage(book, "sell", Decimal.from("10"))).toBeNull();
+	});
+
+	it("returns positive slippage for sell order spanning multiple bid levels", () => {
+		const book = makeBook(
+			[
+				[0.6, 50],
+				[0.5, 50],
+			],
+			[[0.7, 100]],
+		);
+		const slippage = estimateSlippage(book, "sell", Decimal.from("100"));
+		expect(slippage).not.toBeNull();
+		expect(slippage?.isPositive()).toBe(true);
 	});
 });
 
@@ -147,7 +198,9 @@ describe("calcBookDepth", () => {
 				[0.53, 300],
 			],
 		);
-		expect(calcBookDepth(book, "buy").toString()).toBe("600");
+		const depth = calcBookDepth(book, "buy");
+		expect(depth).not.toBeNull();
+		expect(depth?.toString()).toBe("600");
 	});
 
 	it("sums total size on sell side (bids)", () => {
@@ -158,7 +211,9 @@ describe("calcBookDepth", () => {
 			],
 			[],
 		);
-		expect(calcBookDepth(book, "sell").toString()).toBe("300");
+		const depth = calcBookDepth(book, "sell");
+		expect(depth).not.toBeNull();
+		expect(depth?.toString()).toBe("300");
 	});
 
 	it("respects priceLevels limit", () => {
@@ -170,10 +225,17 @@ describe("calcBookDepth", () => {
 				[0.53, 300],
 			],
 		);
-		expect(calcBookDepth(book, "buy", 2).toString()).toBe("300");
+		const depth = calcBookDepth(book, "buy", 2);
+		expect(depth).not.toBeNull();
+		expect(depth?.toString()).toBe("300");
 	});
 
-	it("returns zero for empty book", () => {
-		expect(calcBookDepth(emptyBook, "buy").isZero()).toBe(true);
+	it("returns null for empty book", () => {
+		expect(calcBookDepth(emptyBook, "buy")).toBeNull();
+	});
+
+	it("returns null when limited book is empty", () => {
+		const book = makeBook([[0.5, 100]], [[0.51, 100]]);
+		expect(calcBookDepth(book, "buy", 0)).toBeNull();
 	});
 });
