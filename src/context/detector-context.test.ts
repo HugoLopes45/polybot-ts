@@ -243,4 +243,62 @@ describe("DetectorContext", () => {
 		// notional = 0.50*100 + 0.40*200 = 50 + 80 = 130
 		expect(ctx.totalNotional().eq(d("130"))).toBe(true);
 	});
+
+	describe("spot()", () => {
+		it("returns mid-price when both bid and ask available", () => {
+			const ctx = createContext();
+			expect(ctx.spot()?.eq(d("0.55"))).toBe(true);
+		});
+
+		it("returns best bid when ask missing", () => {
+			const ctx = DetectorContext.create({
+				conditionId: conditionId("cond-1"),
+				bestBid: d("0.54"),
+				bestAsk: null,
+				oraclePrice: null,
+				oracleAgeMs: null,
+				timeRemainingMs: 300_000,
+				positions: [],
+				state: StrategyState.Active,
+				dailyPnl: d("0"),
+				consecutiveLosses: 0,
+				availableBalance: d("1000"),
+			});
+			expect(ctx.spot()?.eq(d("0.54"))).toBe(true);
+		});
+
+		it("returns best ask when bid missing", () => {
+			const ctx = DetectorContext.create({
+				conditionId: conditionId("cond-1"),
+				bestBid: null,
+				bestAsk: d("0.56"),
+				oraclePrice: null,
+				oracleAgeMs: null,
+				timeRemainingMs: 300_000,
+				positions: [],
+				state: StrategyState.Active,
+				dailyPnl: d("0"),
+				consecutiveLosses: 0,
+				availableBalance: d("1000"),
+			});
+			expect(ctx.spot()?.eq(d("0.56"))).toBe(true);
+		});
+
+		it("returns null when neither bid nor ask available", () => {
+			const ctx = DetectorContext.create({
+				conditionId: conditionId("cond-1"),
+				bestBid: null,
+				bestAsk: null,
+				oraclePrice: null,
+				oracleAgeMs: null,
+				timeRemainingMs: 300_000,
+				positions: [],
+				state: StrategyState.Active,
+				dailyPnl: d("0"),
+				consecutiveLosses: 0,
+				availableBalance: d("1000"),
+			});
+			expect(ctx.spot()).toBeNull();
+		});
+	});
 });

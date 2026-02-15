@@ -9,7 +9,7 @@ import { StrategyState } from "../lifecycle/types.js";
 import type { SdkPosition } from "../position/sdk-position.js";
 import { Decimal } from "../shared/decimal.js";
 import type { ConditionId } from "../shared/identifiers.js";
-import type { MarketSide } from "../shared/market-side.js";
+import { MarketSide, type MarketSide as MarketSideType } from "../shared/market-side.js";
 import { type Clock, SystemClock } from "../shared/time.js";
 import type { MarketView, OracleView, PositionView, RiskView, StateView } from "./types.js";
 
@@ -89,6 +89,16 @@ export class DetectorContext implements MarketView, PositionView, OracleView, St
 		const mid = bid.add(ask).div(two);
 		if (mid.isZero()) return null;
 		return ask.sub(bid).div(mid).toNumber() * 100;
+	}
+
+	spot(side: MarketSideType = MarketSide.Yes): Decimal | null {
+		const { bid, ask } = this.bookForSide(side);
+		if (bid !== null && ask !== null) {
+			return bid.add(ask).div(Decimal.from(2));
+		}
+		if (bid !== null) return bid;
+		if (ask !== null) return ask;
+		return null;
 	}
 
 	timeRemainingMs(): number {

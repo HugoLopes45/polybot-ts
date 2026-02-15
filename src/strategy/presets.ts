@@ -26,14 +26,27 @@ export function aggressive(): StrategyBuilder {
 }
 
 /**
- * Scalper preset: tight spreads, fast ticks, tight stops.
+ * Scalper preset: tight spreads, fast ticks, IOC orders, tight stops.
  * Best for high-frequency small-profit trades.
+ * Uses conservative guards for quick entries and tight stop-loss.
  */
 export function scalper(): StrategyBuilder {
 	return StrategyBuilder.create()
 		.withFeeModel(fixedNotionalFee(5))
-		.withGuards(GuardPipeline.standard())
-		.withExits(ExitPipeline.standard());
+		.withGuards(GuardPipeline.conservative())
+		.withExits(ExitPipeline.conservative());
+}
+
+/**
+ * Long-term preset: wider stops, time-based exits, lower fees.
+ * Best for swing trades and position trading.
+ * Uses conservative guards with wide stop-loss and long time exits.
+ */
+export function longTerm(): StrategyBuilder {
+	return StrategyBuilder.create()
+		.withFeeModel(fixedNotionalFee(20))
+		.withGuards(GuardPipeline.conservative())
+		.withExits(ExitPipeline.conservative());
 }
 
 /**

@@ -7,9 +7,11 @@ import { MarketSide } from "../../shared/market-side.js";
 import type { DetectorContextLike } from "../../signal/types.js";
 import { TestRunner } from "./test-runner.js";
 
+const FIXED_NOW = 1000000000000;
+
 const mockContext: DetectorContextLike = {
 	conditionId: conditionId("test"),
-	nowMs: () => Date.now(),
+	nowMs: () => 1000000000000,
 	spot: () => Decimal.from(0.5),
 	oraclePrice: () => Decimal.from(0.5),
 	timeRemainingMs: () => 60000,
@@ -89,7 +91,7 @@ describe("TestRunner", () => {
 			await runnerWithEvents.tick(async () => {
 				dispatcher.emitSdk({
 					type: "order_placed",
-					timestamp: Date.now(),
+					timestamp: FIXED_NOW,
 					clientOrderId: "test" as never,
 					conditionId: conditionId("test"),
 					tokenId: marketTokenId("YES", "m"),
@@ -120,7 +122,7 @@ describe("TestRunner", () => {
 			await runnerWithEvents.tick(async () => {
 				dispatcher.emitSdk({
 					type: "order_placed",
-					timestamp: Date.now(),
+					timestamp: FIXED_NOW,
 					clientOrderId: "test" as never,
 					conditionId: conditionId("test"),
 					tokenId: marketTokenId("YES", "m"),
@@ -175,7 +177,7 @@ describe("TestRunner", () => {
 			await runnerWithEvents.tick(async () => {
 				dispatcher.emitSdk({
 					type: "order_placed",
-					timestamp: Date.now(),
+					timestamp: FIXED_NOW,
 					clientOrderId: "test" as never,
 					conditionId: conditionId("test"),
 					tokenId: marketTokenId("YES", "m"),
