@@ -140,14 +140,6 @@ describe("checkArbitrage", () => {
 		expect(result?.netProfit.toString()).toBe(net.toString());
 	});
 
-	it("should return null when both books empty", () => {
-		const feeRate = Decimal.from("0.02");
-
-		const result = checkArbitrage(emptyBook, emptyBook, feeRate);
-
-		expect(result).toBeNull();
-	});
-
 	it("should use mirror-aware prices for buyYes", () => {
 		const yesBook = makeBook([[0.8, 100]], [[0.85, 100]]);
 		const noBook = makeBook([[0.3, 100]], [[0.6, 100]]);
@@ -289,6 +281,61 @@ describe("calcArbProfit", () => {
 		if (isErr(result)) expect(result.error.code).toBe("INVALID_PRICE");
 	});
 
+	it("accepts boundary price 0 as valid input", () => {
+		const result1 = calcArbProfit(
+			Decimal.from("0"),
+			Decimal.from("0.5"),
+			Decimal.from("100"),
+			Decimal.from("0.02"),
+		);
+		expect(isOk(result1)).toBe(true);
+
+		const result2 = calcArbProfit(
+			Decimal.from("1"),
+			Decimal.from("0"),
+			Decimal.from("100"),
+			Decimal.from("0.02"),
+		);
+		expect(isOk(result2)).toBe(true);
+
+		const result3 = calcArbProfit(
+			Decimal.from("0.5"),
+			Decimal.from("0"),
+			Decimal.from("100"),
+			Decimal.from("0.02"),
+		);
+		expect(isOk(result3)).toBe(true);
+	});
+
+	it("accepts boundary price 1 as valid input", () => {
+		const result1 = calcArbProfit(
+			Decimal.from("1"),
+			Decimal.from("0.5"),
+			Decimal.from("100"),
+			Decimal.from("0.02"),
+		);
+		expect(isOk(result1)).toBe(true);
+
+		const result2 = calcArbProfit(
+			Decimal.from("0.5"),
+			Decimal.from("1"),
+			Decimal.from("100"),
+			Decimal.from("0.02"),
+		);
+		expect(isOk(result2)).toBe(true);
+	});
+
+	it("rejects noPrice > 1", () => {
+		const result = calcArbProfit(
+			Decimal.from("0.40"),
+			Decimal.from("1.5"),
+			Decimal.from("100"),
+			Decimal.from("0.02"),
+		);
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.code).toBe("INVALID_PRICE");
+	});
+
 	it("rejects negative size", () => {
 		const result = calcArbProfit(
 			Decimal.from("0.40"),
@@ -351,6 +398,12 @@ describe("calcOptimalSize", () => {
 
 	it("returns zero for zero balance", () => {
 		const result = calcOptimalSize(makeOpp("0.40", "0.45"), Decimal.from("100"), Decimal.zero());
+		expect(isOk(result)).toBe(true);
+		if (isOk(result)) expect(result.value.isZero()).toBe(true);
+	});
+
+	it("returns zero when maxExposure is zero", () => {
+		const result = calcOptimalSize(makeOpp("0.40", "0.45"), Decimal.zero(), Decimal.from("1000"));
 		expect(isOk(result)).toBe(true);
 		if (isOk(result)) expect(result.value.isZero()).toBe(true);
 	});

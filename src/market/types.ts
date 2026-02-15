@@ -36,8 +36,7 @@ export interface MarketInfo {
 	readonly questionId: string;
 	readonly question: string;
 	readonly description: string;
-	readonly active: boolean;
-	readonly closed: boolean;
+	readonly status: "active" | "inactive" | "closed";
 	readonly endDate: string;
 }
 

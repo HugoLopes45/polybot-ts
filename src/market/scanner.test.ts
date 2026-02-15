@@ -14,8 +14,7 @@ function makeMarket(id: string, overrides?: Partial<MarketInfo>): MarketInfo {
 		questionId: `q-${id}`,
 		question: `Question ${id}`,
 		description: `Desc ${id}`,
-		active: true,
-		closed: false,
+		status: "active",
 		endDate: "2025-12-31",
 		...overrides,
 	};
@@ -104,6 +103,25 @@ describe("scan", () => {
 		expect(results).toHaveLength(1);
 		expect(Number.isFinite(results[0]?.score)).toBe(true);
 		expect(results[0]?.score).toBeGreaterThanOrEqual(0);
+	});
+
+	it("handles inactive market status", () => {
+		const market = makeMarket("m1", { status: "inactive" });
+		const book = makeBook([level("0.48", "100")], [level("0.52", "100")]);
+		const books = new Map([["m1", book]]);
+
+		const results = scan([market], books);
+		expect(results).toHaveLength(1);
+		expect(results[0]?.conditionId).toBe(conditionId("m1"));
+	});
+
+	it("handles closed market status", () => {
+		const market = makeMarket("m1", { status: "closed" });
+		const book = makeBook([level("0.48", "100")], [level("0.52", "100")]);
+		const books = new Map([["m1", book]]);
+
+		const results = scan([market], books);
+		expect(results).toHaveLength(1);
 	});
 
 	it("score is zero when spread is exactly zero", () => {

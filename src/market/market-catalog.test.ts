@@ -14,8 +14,7 @@ const MARKET_A: MarketInfo = {
 	questionId: "q-1",
 	question: "Will it rain?",
 	description: "Weather market",
-	active: true,
-	closed: false,
+	status: "active",
 	endDate: "2025-12-31",
 };
 
@@ -24,8 +23,7 @@ const MARKET_B: MarketInfo = {
 	questionId: "q-2",
 	question: "Will it snow?",
 	description: "Snow market",
-	active: true,
-	closed: false,
+	status: "active",
 	endDate: "2025-12-31",
 };
 
@@ -215,6 +213,29 @@ describe("MarketCatalog", () => {
 				}
 			});
 
+			it("rate limiter returns Infinity retryAfterMs for non-refilling limiter", async () => {
+				const deps = {
+					getMarket: async () => null,
+					searchMarkets: async () => [MARKET_A],
+				};
+				const clock = new FakeClock(1000);
+				const rateLimiter = new TokenBucketRateLimiter({
+					capacity: 1,
+					refillRate: 0,
+					clock,
+				});
+				const service = new MarketCatalog(deps, { clock, rateLimiter });
+
+				await service.searchMarkets("weather");
+				const result = await service.searchMarkets("weather");
+
+				expect(isErr(result)).toBe(true);
+				if (isErr(result)) {
+					const rle = result.error as RateLimitError;
+					expect(rle.retryAfterMs).toBe(Number.POSITIVE_INFINITY);
+				}
+			});
+
 			it("rate limiter allows when tokens available", async () => {
 				let callCount = 0;
 				const deps = {
@@ -277,10 +298,11 @@ describe("MarketCatalog", () => {
 				const clock = new FakeClock(1000);
 				const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
 				const rateLimiter = new TokenBucketRateLimiter({
-					capacity: 0,
+					capacity: 1,
 					refillRate: 0,
 					clock,
 				});
+				rateLimiter.tryAcquire();
 				const service = new MarketCatalog(deps, { clock, searchCache: cache, rateLimiter });
 
 				const result = await service.searchMarkets("weather");
@@ -484,5 +506,35 @@ describe("MarketCatalog discovery methods", () => {
 		const result = await catalog.getMarket(conditionId("cond-a"));
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) expect(result.error.isRetryable).toBe(true);
+	});
+
+	it("tracks cache write errors with counter", async () => {
+		const deps = makeDeps({ getMarket: async () => MARKET_A });
+		const catalog = new MarketCatalog(deps);
+
+		catalog.cache.set = () => {
+			throw new Error("cache write failed");
+		};
+
+		const result = await catalog.getMarket(conditionId("cond-a"));
+		expect(isOk(result)).toBe(true);
+		expect(catalog.cacheWriteErrors).toBe(1);
+
+		const result2 = await catalog.getMarket(conditionId("cond-b"));
+		expect(isOk(result2)).toBe(true);
+		expect(catalog.cacheWriteErrors).toBe(2);
+	});
+
+	it("searchCache write errors increment cacheWriteErrors", async () => {
+		const cache = new Cache<MarketInfo[]>({ ttl: 60_000, maxSize: 100 });
+		cache.set = () => {
+			throw new Error("cache write failed");
+		};
+		const deps = makeDeps({ searchMarkets: async () => [MARKET_A] });
+		const catalog = new MarketCatalog(deps, { searchCache: cache });
+
+		const result = await catalog.searchMarkets("query");
+		expect(isOk(result)).toBe(true);
+		expect(catalog.cacheWriteErrors).toBe(1);
 	});
 });

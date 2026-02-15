@@ -11,7 +11,7 @@ import type { MarketInfo } from "./types.js";
  * Dependencies required by MarketCatalog to interact with external market data.
  */
 export interface MarketProviders {
-	getMarket(id: string): Promise<MarketInfo | null>;
+	getMarket(id: ConditionId): Promise<MarketInfo | null>;
 	searchMarkets(query: string): Promise<MarketInfo[]>;
 	getTrending?(limit: number): Promise<MarketInfo[]>;
 	getTopByVolume?(limit: number): Promise<MarketInfo[]>;
@@ -36,6 +36,7 @@ export class MarketCatalog {
 	private readonly cache: Map<string, CacheEntry>;
 	private readonly searchCache: Cache<MarketInfo[]> | undefined;
 	private readonly rateLimiter: TokenBucketRateLimiter | undefined;
+	private _cacheWriteErrors = 0;
 
 	constructor(
 		deps: MarketProviders,
@@ -52,6 +53,10 @@ export class MarketCatalog {
 		this.cache = new Map();
 		this.searchCache = config?.searchCache;
 		this.rateLimiter = config?.rateLimiter;
+	}
+
+	get cacheWriteErrors(): number {
+		return this._cacheWriteErrors;
 	}
 
 	/**
@@ -71,7 +76,7 @@ export class MarketCatalog {
 
 		let market: MarketInfo | null;
 		try {
-			market = await this.deps.getMarket(key);
+			market = await this.deps.getMarket(id);
 		} catch (error) {
 			return err(classifyError(error));
 		}
@@ -90,7 +95,7 @@ export class MarketCatalog {
 				expiresAtMs: this.clock.now() + this.cacheTtlMs,
 			});
 		} catch {
-			// Cache write failure must not lose a successful API result
+			this._cacheWriteErrors++;
 		}
 		return ok(market);
 	}
@@ -109,9 +114,13 @@ export class MarketCatalog {
 
 		if (this.rateLimiter && !this.rateLimiter.tryAcquire()) {
 			return err(
-				new RateLimitError("Rate limit exceeded for searchMarkets", 1000, {
-					query,
-				}),
+				new RateLimitError(
+					"Rate limit exceeded for searchMarkets",
+					this.rateLimiter.timeUntilNextTokenMs(),
+					{
+						query,
+					},
+				),
 			);
 		}
 
@@ -127,7 +136,7 @@ export class MarketCatalog {
 				this.searchCache.set(query, markets);
 			}
 		} catch {
-			// Cache write failure must not lose a successful API result
+			this._cacheWriteErrors++;
 		}
 		return ok(markets);
 	}
