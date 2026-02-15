@@ -50,11 +50,13 @@ export interface CacheStats {
  */
 export class Cache<T> {
 	private readonly cache = new Map<string, CacheEntry<T>>();
+	private readonly inFlight = new Map<string, Promise<T>>();
 	private readonly ttl: number;
 	private readonly maxSize: number;
 	private readonly clock: Clock;
 	private hits = 0;
 	private misses = 0;
+	private readonly lruKeys: string[] = [];
 
 	/**
 	 * Creates a new cache with the specified configuration.
@@ -80,6 +82,7 @@ export class Cache<T> {
 
 		if (this.clock.now() > entry.expires) {
 			this.cache.delete(key);
+			this.removeFromLru(key);
 			this.misses++;
 			return undefined;
 		}
@@ -87,7 +90,22 @@ export class Cache<T> {
 		entry.accessCount++;
 		entry.lastAccess = this.clock.now();
 		this.hits++;
+		this.moveToMru(key);
 		return entry.value;
+	}
+
+	/**
+	 * Checks if a key exists in the cache and is not expired.
+	 * Does not track hits/misses (read-only check).
+	 * @param key - The cache key
+	 * @returns true if the key exists and is not expired
+	 */
+	has(key: string): boolean {
+		const entry = this.cache.get(key);
+		if (!entry) {
+			return false;
+		}
+		return this.clock.now() <= entry.expires;
 	}
 
 	/**
@@ -97,8 +115,16 @@ export class Cache<T> {
 	 * @param ttl - Optional custom TTL in milliseconds
 	 */
 	set(key: string, value: T, ttl?: number): void {
-		if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
-			this.evictLRU();
+		const existingEntry = this.cache.get(key);
+		const isUpdate = existingEntry !== undefined && this.clock.now() <= existingEntry.expires;
+
+		if (!isUpdate) {
+			if (this.cache.size >= this.maxSize) {
+				this.evictLRU();
+			}
+			this.lruKeys.push(key);
+		} else {
+			this.moveToMru(key);
 		}
 
 		this.cache.set(key, {
@@ -111,7 +137,7 @@ export class Cache<T> {
 
 	/**
 	 * Gets a cached value or fetches it if not present.
-	 * Implements the cache-aside pattern.
+	 * Implements the cache-aside pattern with thundering herd protection.
 	 * @param key - The cache key
 	 * @param fetcher - Async function to fetch the value if not cached
 	 * @returns The cached or freshly fetched value
@@ -122,9 +148,21 @@ export class Cache<T> {
 			return cached;
 		}
 
-		const value = await fetcher();
-		this.set(key, value);
-		return value;
+		const existing = this.inFlight.get(key);
+		if (existing) {
+			return existing;
+		}
+
+		const promise = fetcher();
+		this.inFlight.set(key, promise);
+
+		try {
+			const value = await promise;
+			this.set(key, value);
+			return value;
+		} finally {
+			this.inFlight.delete(key);
+		}
 	}
 
 	/**
@@ -133,6 +171,7 @@ export class Cache<T> {
 	 * @returns true if the key was present, false otherwise
 	 */
 	delete(key: string): boolean {
+		this.removeFromLru(key);
 		return this.cache.delete(key);
 	}
 
@@ -141,6 +180,7 @@ export class Cache<T> {
 	 */
 	clear(): void {
 		this.cache.clear();
+		this.lruKeys.length = 0;
 	}
 
 	/**
@@ -157,18 +197,21 @@ export class Cache<T> {
 	}
 
 	private evictLRU(): void {
-		let oldestKey: string | null = null;
-		let oldestAccess = Number.POSITIVE_INFINITY;
-
-		for (const [key, entry] of this.cache) {
-			if (entry.lastAccess < oldestAccess) {
-				oldestAccess = entry.lastAccess;
-				oldestKey = key;
-			}
+		const lruKey = this.lruKeys.shift();
+		if (lruKey) {
+			this.cache.delete(lruKey);
 		}
+	}
 
-		if (oldestKey) {
-			this.cache.delete(oldestKey);
+	private moveToMru(key: string): void {
+		this.removeFromLru(key);
+		this.lruKeys.push(key);
+	}
+
+	private removeFromLru(key: string): void {
+		const index = this.lruKeys.indexOf(key);
+		if (index !== -1) {
+			this.lruKeys.splice(index, 1);
 		}
 	}
 }
