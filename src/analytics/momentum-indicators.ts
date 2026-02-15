@@ -1,38 +1,7 @@
 import { Decimal } from "../shared/decimal.js";
+import { at, atCandle, slidingHigh, slidingLow } from "./helpers.js";
 import { calcSMA } from "./indicators.js";
-import type { Candle } from "./types.js";
-
-function at(arr: readonly Decimal[], i: number): Decimal {
-	// biome-ignore lint/style/noNonNullAssertion: bounds validated by callers
-	return arr[i]!;
-}
-
-function atCandle(arr: readonly Candle[], i: number): Candle {
-	// biome-ignore lint/style/noNonNullAssertion: bounds validated by callers
-	return arr[i]!;
-}
-
-function slidingHigh(highs: readonly Decimal[], period: number, endIdx: number): Decimal {
-	let max = at(highs, endIdx - period + 1);
-	for (let i = endIdx - period + 2; i <= endIdx; i++) {
-		const val = at(highs, i);
-		if (val.gt(max)) {
-			max = val;
-		}
-	}
-	return max;
-}
-
-function slidingLow(lows: readonly Decimal[], period: number, endIdx: number): Decimal {
-	let min = at(lows, endIdx - period + 1);
-	for (let i = endIdx - period + 2; i <= endIdx; i++) {
-		const val = at(lows, i);
-		if (val.lt(min)) {
-			min = val;
-		}
-	}
-	return min;
-}
+import type { Candle, StochasticResult } from "./types.js";
 
 function calcRSISeries(closes: readonly Decimal[], period: number): Decimal[] {
 	if (closes.length < period + 1) {
@@ -88,11 +57,21 @@ function calcRSISeries(closes: readonly Decimal[], period: number): Decimal[] {
 	return rsiValues;
 }
 
+/**
+ * Stochastic Oscillator
+ *
+ * Requires at least `kPeriod + dPeriod - 1` candles.
+ *
+ * @param candles - Array of candles
+ * @param kPeriod - %K lookback period (default 14)
+ * @param dPeriod - %D smoothing period (default 3)
+ * @returns Stochastic components (k/d) or null if insufficient data
+ */
 export function calcStochastic(
 	candles: readonly Candle[],
 	kPeriod = 14,
 	dPeriod = 3,
-): { readonly k: Decimal; readonly d: Decimal } | null {
+): StochasticResult | null {
 	if (kPeriod < 1 || dPeriod < 1) {
 		return null;
 	}
@@ -111,8 +90,9 @@ export function calcStochastic(
 	const fifty = Decimal.from(50);
 
 	for (let i = kPeriod - 1; i < candles.length; i++) {
-		const highestHigh = slidingHigh(highs, kPeriod, i);
-		const lowestLow = slidingLow(lows, kPeriod, i);
+		const startIdx = i - kPeriod + 1;
+		const highestHigh = slidingHigh(highs, startIdx, i);
+		const lowestLow = slidingLow(lows, startIdx, i);
 		const close = at(closes, i);
 
 		let k: Decimal;
@@ -139,6 +119,15 @@ export function calcStochastic(
 	return { k: lastK, d };
 }
 
+/**
+ * Williams %R
+ *
+ * Requires at least `period` candles.
+ *
+ * @param candles - Array of candles
+ * @param period - Lookback period (default 14)
+ * @returns Williams %R value or null if insufficient data
+ */
 export function calcWilliamsR(candles: readonly Candle[], period = 14): Decimal | null {
 	if (period < 1 || candles.length < period) {
 		return null;
@@ -149,8 +138,9 @@ export function calcWilliamsR(candles: readonly Candle[], period = 14): Decimal 
 	const close = atCandle(candles, candles.length - 1).close;
 
 	const endIdx = candles.length - 1;
-	const highestHigh = slidingHigh(highs, period, endIdx);
-	const lowestLow = slidingLow(lows, period, endIdx);
+	const startIdx = endIdx - period + 1;
+	const highestHigh = slidingHigh(highs, startIdx, endIdx);
+	const lowestLow = slidingLow(lows, startIdx, endIdx);
 
 	if (highestHigh.eq(lowestLow)) {
 		return Decimal.from(-50);
@@ -162,6 +152,15 @@ export function calcWilliamsR(candles: readonly Candle[], period = 14): Decimal 
 	return highestHigh.sub(close).div(range).mul(negHundred);
 }
 
+/**
+ * Commodity Channel Index (CCI)
+ *
+ * Requires at least `period` candles.
+ *
+ * @param candles - Array of candles
+ * @param period - Lookback period (default 20)
+ * @returns CCI value or null if insufficient data
+ */
 export function calcCCI(candles: readonly Candle[], period = 20): Decimal | null {
 	if (period < 1 || candles.length < period) {
 		return null;
@@ -198,6 +197,15 @@ export function calcCCI(candles: readonly Candle[], period = 20): Decimal | null
 	return lastTP.sub(smaTP).div(constant.mul(meanDev));
 }
 
+/**
+ * Rate of Change (ROC)
+ *
+ * Requires at least `period + 1` data points.
+ *
+ * @param closes - Array of closing prices
+ * @param period - Lookback period (default 12)
+ * @returns ROC value (percentage) or null if insufficient data
+ */
 export function calcROC(closes: readonly Decimal[], period = 12): Decimal | null {
 	if (period < 1 || closes.length < period + 1) {
 		return null;
@@ -214,6 +222,16 @@ export function calcROC(closes: readonly Decimal[], period = 12): Decimal | null
 	return currentClose.sub(historicalClose).div(historicalClose).mul(hundred);
 }
 
+/**
+ * Awesome Oscillator (AO)
+ *
+ * Requires at least `slow` candles.
+ *
+ * @param candles - Array of candles
+ * @param fast - Fast SMA period (default 5)
+ * @param slow - Slow SMA period (default 34)
+ * @returns AO value or null if insufficient data
+ */
 export function calcAO(candles: readonly Candle[], fast = 5, slow = 34): Decimal | null {
 	if (fast < 1 || slow < 1 || candles.length < slow) {
 		return null;
@@ -231,24 +249,36 @@ export function calcAO(candles: readonly Candle[], fast = 5, slow = 34): Decimal
 	return fastSMA.sub(slowSMA);
 }
 
+/**
+ * Stochastic RSI
+ *
+ * Requires at least `rsiPeriod + stochPeriod + kPeriod + dPeriod - 1` data points.
+ *
+ * @param closes - Array of closing prices
+ * @param rsiPeriod - RSI calculation period (default 14)
+ * @param stochPeriod - Stochastic lookback period (default 14)
+ * @param kPeriod - %K smoothing period (default 3)
+ * @param dPeriod - %D smoothing period (default 3)
+ * @returns StochRSI components (k/d) or null if insufficient data
+ */
 export function calcStochRSI(
 	closes: readonly Decimal[],
 	rsiPeriod = 14,
 	stochPeriod = 14,
 	kPeriod = 3,
 	dPeriod = 3,
-): { readonly k: Decimal; readonly d: Decimal } | null {
+): StochasticResult | null {
 	if (rsiPeriod < 1 || stochPeriod < 1 || kPeriod < 1 || dPeriod < 1) {
 		return null;
 	}
 
-	const minCloses = rsiPeriod + stochPeriod + kPeriod + dPeriod - 2;
+	const minCloses = rsiPeriod + stochPeriod + kPeriod + dPeriod - 1;
 	if (closes.length < minCloses) {
 		return null;
 	}
 
 	const rsiSeries = calcRSISeries(closes, rsiPeriod);
-	if (rsiSeries.length < stochPeriod + kPeriod + dPeriod - 2) {
+	if (rsiSeries.length < stochPeriod + kPeriod + dPeriod - 1) {
 		return null;
 	}
 

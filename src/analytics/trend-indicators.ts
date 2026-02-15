@@ -1,27 +1,10 @@
 import { Decimal } from "../shared/decimal.js";
+import { at, atCandle, trueRange } from "./helpers.js";
 import { calcSMA } from "./indicators.js";
-import type { Candle } from "./types.js";
-
-function at(arr: readonly Decimal[], i: number): Decimal {
-	// biome-ignore lint/style/noNonNullAssertion: bounds validated by callers
-	return arr[i]!;
-}
-
-function atCandle(arr: readonly Candle[], i: number): Candle {
-	// biome-ignore lint/style/noNonNullAssertion: bounds validated by callers
-	return arr[i]!;
-}
+import type { Candle, MACDResult } from "./types.js";
 
 function extractCloses(candles: readonly Candle[]): Decimal[] {
 	return candles.map((c) => c.close);
-}
-
-function trueRange(candle: Candle, prevClose: Decimal): Decimal {
-	const hl = candle.high.sub(candle.low);
-	const hc = candle.high.sub(prevClose).abs();
-	const lc = candle.low.sub(prevClose).abs();
-
-	return Decimal.max(hl, Decimal.max(hc, lc));
 }
 
 function calcEMASeries(closes: readonly Decimal[], period: number): Decimal[] | null {
@@ -72,13 +55,24 @@ function wilderSmooth(values: readonly Decimal[], period: number): Decimal[] {
 	return smoothed;
 }
 
+/**
+ * MACD (Moving Average Convergence Divergence)
+ *
+ * Requires at least `slow + signal - 1` candles.
+ *
+ * @param candles - Array of candles
+ * @param fast - Fast EMA period (default 12)
+ * @param slow - Slow EMA period (default 26)
+ * @param signal - Signal line EMA period (default 9)
+ * @returns MACD components (macd/signal/histogram) or null if insufficient data
+ */
 export function calcMACD(
 	candles: readonly Candle[],
 	fast = 12,
 	slow = 26,
 	signal = 9,
-): { readonly macd: Decimal; readonly signal: Decimal; readonly histogram: Decimal } | null {
-	if (fast < 1 || slow < 1 || signal < 1 || candles.length < slow) {
+): MACDResult | null {
+	if (fast < 1 || slow < 1 || signal < 1 || candles.length < slow + signal - 1) {
 		return null;
 	}
 
@@ -117,6 +111,15 @@ export function calcMACD(
 	return { macd: macdValue, signal: signalValue, histogram };
 }
 
+/**
+ * Average Directional Index (ADX)
+ *
+ * Requires at least `2 * period + 1` candles.
+ *
+ * @param candles - Array of candles
+ * @param period - Lookback period (default 14)
+ * @returns ADX components (adx/plusDI/minusDI) or null if insufficient data
+ */
 export function calcADX(
 	candles: readonly Candle[],
 	period = 14,
@@ -199,6 +202,15 @@ export function calcADX(
 	return { adx, plusDI, minusDI };
 }
 
+/**
+ * Aroon Indicator
+ *
+ * Requires at least `period + 1` candles.
+ *
+ * @param candles - Array of candles
+ * @param period - Lookback period (default 25)
+ * @returns Aroon components (up/down) or null if insufficient data
+ */
 export function calcAroon(
 	candles: readonly Candle[],
 	period = 25,
@@ -233,6 +245,15 @@ export function calcAroon(
 	return { up, down };
 }
 
+/**
+ * Double Exponential Moving Average (DEMA)
+ *
+ * Requires at least `2 * period - 1` data points.
+ *
+ * @param closes - Array of closing prices
+ * @param period - Lookback period (default 12)
+ * @returns DEMA value or null if insufficient data
+ */
 export function calcDEMA(closes: readonly Decimal[], period = 12): Decimal | null {
 	if (period < 1 || closes.length < 2 * period - 1) {
 		return null;
@@ -254,8 +275,17 @@ export function calcDEMA(closes: readonly Decimal[], period = 12): Decimal | nul
 	return Decimal.from(2).mul(lastEma1).sub(lastEma2);
 }
 
+/**
+ * TRIX (Triple Exponential Moving Average Oscillator)
+ *
+ * Requires at least `3 * period - 1` data points.
+ *
+ * @param closes - Array of closing prices
+ * @param period - Lookback period (default 4)
+ * @returns TRIX value (percent rate of change) or null if insufficient data
+ */
 export function calcTRIX(closes: readonly Decimal[], period = 4): Decimal | null {
-	if (period < 1 || closes.length < 3 * period - 2) {
+	if (period < 1 || closes.length < 3 * period - 1) {
 		return null;
 	}
 
@@ -284,6 +314,16 @@ export function calcTRIX(closes: readonly Decimal[], period = 4): Decimal | null
 	return current.sub(previous).div(previous).mul(Decimal.from(100));
 }
 
+/**
+ * Parabolic SAR (Stop and Reverse)
+ *
+ * Requires at least 2 candles.
+ *
+ * @param candles - Array of candles
+ * @param step - Acceleration factor step (default 0.02)
+ * @param max - Maximum acceleration factor (default 0.2)
+ * @returns Array of SAR values (one per candle) or null if insufficient data
+ */
 export function calcPSAR(
 	candles: readonly Candle[],
 	step = 0.02,
@@ -311,7 +351,7 @@ export function calcPSAR(
 		if (isUptrend) {
 			newSAR = prevSAR.add(af.mul(ep.sub(prevSAR)));
 
-			const prev1Low = i >= 1 ? atCandle(candles, i - 1).low : current.low;
+			const prev1Low = atCandle(candles, i - 1).low;
 			const prev2Low = i >= 2 ? atCandle(candles, i - 2).low : prev1Low;
 			const minPrevLow = Decimal.min(prev1Low, prev2Low);
 
@@ -333,7 +373,7 @@ export function calcPSAR(
 		} else {
 			newSAR = prevSAR.sub(af.mul(prevSAR.sub(ep)));
 
-			const prev1High = i >= 1 ? atCandle(candles, i - 1).high : current.high;
+			const prev1High = atCandle(candles, i - 1).high;
 			const prev2High = i >= 2 ? atCandle(candles, i - 2).high : prev1High;
 			const maxPrevHigh = Decimal.max(prev1High, prev2High);
 

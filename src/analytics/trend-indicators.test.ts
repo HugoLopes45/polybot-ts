@@ -33,8 +33,10 @@ describe("calcMACD", () => {
 
 		const result = calcMACD(candles, 3, 5, 3);
 		expect(result).not.toBeNull();
-		expect(result?.macd.toNumber()).toBeGreaterThan(0);
-		expect(result?.signal.toNumber()).toBeGreaterThan(0);
+		// Verified computed values for this specific input sequence
+		expect(result?.macd.toNumber()).toBeCloseTo(0.8813, 3);
+		expect(result?.signal.toNumber()).toBeCloseTo(0.9827, 3);
+		expect(result?.histogram.toNumber()).toBeCloseTo(-0.1014, 3);
 	});
 
 	it("handles flat market", () => {
