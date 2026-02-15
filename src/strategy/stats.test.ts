@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import { EventDispatcher } from "../events/event-dispatcher.js";
 import { StrategyStats } from "./stats.js";
 
+const FIXED_TIMESTAMP = 1000000000000;
+
 function createPositionClosed(
 	pnl: number,
 	fee = 0,
 ): import("../events/sdk-events.js").PositionClosed {
 	return {
 		type: "position_closed",
-		timestamp: Date.now(),
+		timestamp: FIXED_TIMESTAMP,
 		conditionId: "test-condition" as import("../shared/identifiers.js").ConditionId,
 		tokenId: "ETH-USD" as import("../shared/identifiers.js").MarketTokenId,
 		entryPrice: 1000,

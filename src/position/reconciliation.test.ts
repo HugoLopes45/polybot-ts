@@ -14,6 +14,7 @@ const CID2 = conditionId("0xdef456");
 const CID3 = conditionId("0xghi789");
 const TOKEN1 = marketTokenId("token1");
 const TOKEN2 = marketTokenId("token2");
+const FIXED_NOW = 1000000000000;
 
 function createSdkPosition(
 	cid: ReturnType<typeof conditionId>,
@@ -27,7 +28,7 @@ function createSdkPosition(
 		side,
 		entryPrice: Decimal.from("0.5"),
 		size,
-		entryTimeMs: Date.now(),
+		entryTimeMs: FIXED_NOW,
 	});
 }
 

@@ -5,10 +5,12 @@ import { calcArbProfit, calcOptimalSize, checkArbitrage } from "./arbitrage.js";
 import type { ArbitrageOpportunity } from "./arbitrage.js";
 import type { OrderbookSnapshot } from "./types.js";
 
+const FIXED_TIMESTAMP = 1000000000000;
+
 const emptyBook: OrderbookSnapshot = {
 	bids: [],
 	asks: [],
-	timestampMs: Date.now(),
+	timestampMs: FIXED_TIMESTAMP,
 };
 
 const makeBook = (bids: [number, number][], asks: [number, number][]): OrderbookSnapshot => ({
@@ -20,7 +22,7 @@ const makeBook = (bids: [number, number][], asks: [number, number][]): Orderbook
 		price: Decimal.from(price),
 		size: Decimal.from(size),
 	})),
-	timestampMs: Date.now(),
+	timestampMs: FIXED_TIMESTAMP,
 });
 
 const makeOpp = (yesPrice: string, noPrice: string): ArbitrageOpportunity => ({

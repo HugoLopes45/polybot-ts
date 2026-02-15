@@ -6,10 +6,12 @@ import { GuardPipeline } from "./guard-pipeline.js";
 import { allow, block, isBlocked } from "./types.js";
 import type { EntryGuard, GuardContext } from "./types.js";
 
+const FIXED_NOW = 1000000000000;
+
 const createMockContext = (): GuardContext => {
 	return {
 		conditionId: conditionId("test-condition"),
-		nowMs: () => Date.now(),
+		nowMs: () => FIXED_NOW,
 		spot: () => Decimal.from("100"),
 		oraclePrice: () => Decimal.from("100"),
 		bestBid: () => Decimal.from("99"),

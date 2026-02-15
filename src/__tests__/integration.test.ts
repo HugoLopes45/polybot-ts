@@ -27,6 +27,7 @@ const CID1 = conditionId("cond-001");
 const CID2 = conditionId("cond-002");
 const TOKEN1 = marketTokenId("market-1");
 const TOKEN2 = marketTokenId("market-2");
+const FIXED_NOW = 1000000000000;
 
 function createDetector(
 	signal: unknown,
@@ -60,7 +61,7 @@ function createContext(params?: TestTickContextParams): TickContext {
 
 	const ctx: TickContext = {
 		conditionId: CID1,
-		nowMs: () => Date.now(),
+		nowMs: () => FIXED_NOW,
 		spot: () => Decimal.from((bid + ask) / 2),
 		oraclePrice: () => Decimal.from(oracle),
 		timeRemainingMs: () => 60000,
