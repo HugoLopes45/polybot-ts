@@ -6,6 +6,7 @@
  * circular dependencies between bounded contexts.
  */
 
+import type { OrderKind } from "../order/types.js";
 import type { Decimal } from "../shared/decimal.js";
 import type { ConditionId, MarketTokenId } from "../shared/identifiers.js";
 import type { MarketSide } from "../shared/market-side.js";
@@ -104,6 +105,7 @@ export interface SdkOrderIntent {
 	readonly direction: OrderDirection;
 	readonly price: Decimal;
 	readonly size: Decimal;
+	readonly orderKind?: OrderKind;
 }
 
 // ── Signal detector interface (THE interface users implement) ───────

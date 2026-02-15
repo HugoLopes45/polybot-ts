@@ -28,7 +28,7 @@ export interface ClobOrderRequest {
 	/** Order side - buy or sell */
 	readonly side: "BUY" | "SELL";
 	/** Order time-in-force type */
-	readonly orderType: "GTC" | "IOC" | "FOK";
+	readonly orderType: "GTC" | "IOC" | "FOK" | "GTD";
 }
 
 /**

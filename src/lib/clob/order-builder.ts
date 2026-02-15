@@ -12,12 +12,16 @@ import type { ClobOrderRequest } from "./types.js";
  * // { tokenId: "123456", price: "0.55", size: "10", side: "BUY", orderType: "GTC" }
  * ```
  */
+const VALID_ORDER_TYPES = new Set(["GTC", "IOC", "FOK", "GTD"]);
+
 export function buildClobOrder(intent: SdkOrderIntent): ClobOrderRequest {
+	const raw = intent.orderKind ? intent.orderKind.toUpperCase() : "GTC";
+	const orderType = (VALID_ORDER_TYPES.has(raw) ? raw : "GTC") as ClobOrderRequest["orderType"];
 	return {
 		tokenId: intent.tokenId as string,
 		price: intent.price.toString(),
 		size: intent.size.toString(),
 		side: intent.direction === "buy" ? "BUY" : "SELL",
-		orderType: "GTC",
+		orderType,
 	};
 }

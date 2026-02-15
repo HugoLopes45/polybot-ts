@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { OrderKind } from "../../order/types.js";
 import { Decimal } from "../../shared/decimal.js";
 import { conditionId, marketTokenId } from "../../shared/identifiers.js";
 import { MarketSide } from "../../shared/market-side.js";
@@ -49,6 +50,33 @@ describe("buildClobOrder", () => {
 	it("defaults orderType to GTC", () => {
 		const req = buildClobOrder(BASE_INTENT);
 		expect(req.orderType).toBe("GTC");
+	});
+
+	it("uses orderKind when provided (H8)", () => {
+		const intent: SdkOrderIntent = {
+			...BASE_INTENT,
+			orderKind: OrderKind.IOC,
+		};
+		const req = buildClobOrder(intent);
+		expect(req.orderType).toBe("IOC");
+	});
+
+	it("handles FOK orderKind (H8)", () => {
+		const intent: SdkOrderIntent = {
+			...BASE_INTENT,
+			orderKind: OrderKind.FOK,
+		};
+		const req = buildClobOrder(intent);
+		expect(req.orderType).toBe("FOK");
+	});
+
+	it("handles GTD orderKind (H8)", () => {
+		const intent: SdkOrderIntent = {
+			...BASE_INTENT,
+			orderKind: OrderKind.GTD,
+		};
+		const req = buildClobOrder(intent);
+		expect(req.orderType).toBe("GTD");
 	});
 
 	it("handles zero price and size (HARD-17)", () => {

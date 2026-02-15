@@ -27,6 +27,11 @@ export class GuardPipeline {
 		this.guards = guards;
 	}
 
+	/** Returns all guards in the pipeline. */
+	all(): readonly EntryGuard[] {
+		return this.guards;
+	}
+
 	/** Creates an empty pipeline with no guards. */
 	static create(): GuardPipeline {
 		return new GuardPipeline([]);
