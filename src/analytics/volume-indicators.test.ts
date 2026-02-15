@@ -45,6 +45,10 @@ describe("calcOBV", () => {
 });
 
 describe("calcVWMA", () => {
+	it("should return null for period < 1", () => {
+		expect(calcVWMA([candle(100, 101, 99, 100), candle(101, 102, 100, 101)], 0)).toBeNull();
+	});
+
 	it("should return null for insufficient data", () => {
 		expect(calcVWMA([], 3)).toBeNull();
 		expect(calcVWMA([candle(100, 101, 99, 100)], 3)).toBeNull();
@@ -78,6 +82,15 @@ describe("calcVWMA", () => {
 });
 
 describe("calcMFI", () => {
+	it("should return null for period < 1", () => {
+		expect(
+			calcMFI(
+				[candle(100, 101, 99, 100), candle(101, 102, 100, 101), candle(102, 103, 101, 102)],
+				0,
+			),
+		).toBeNull();
+	});
+
 	it("should return null for insufficient data", () => {
 		expect(calcMFI([], 3)).toBeNull();
 		expect(calcMFI([candle(100, 101, 99, 100)], 3)).toBeNull();
@@ -163,6 +176,10 @@ describe("calcADL", () => {
 });
 
 describe("calcCMF", () => {
+	it("should return null for period < 1", () => {
+		expect(calcCMF([candle(100, 101, 99, 100), candle(101, 102, 100, 101)], 0)).toBeNull();
+	});
+
 	it("should return null for insufficient data", () => {
 		expect(calcCMF([], 3)).toBeNull();
 		expect(calcCMF([candle(100, 101, 99, 100)], 3)).toBeNull();
@@ -195,6 +212,10 @@ describe("calcCMF", () => {
 });
 
 describe("calcForceIndex", () => {
+	it("should return null for period < 1", () => {
+		expect(calcForceIndex([candle(100, 101, 99, 100), candle(101, 102, 100, 101)], 0)).toBeNull();
+	});
+
 	it("should return null for insufficient data", () => {
 		expect(calcForceIndex([], 2)).toBeNull();
 		expect(calcForceIndex([candle(100, 101, 99, 100)], 2)).toBeNull();
@@ -292,6 +313,18 @@ describe("calcVPT", () => {
 });
 
 describe("calcPVO", () => {
+	it("should return null for period < 1", () => {
+		const candles = [
+			candle(100, 101, 99, 100),
+			candle(101, 102, 100, 101),
+			candle(102, 103, 101, 102),
+			candle(103, 104, 102, 103),
+		];
+		expect(calcPVO(candles, 0, 3, 2)).toBeNull();
+		expect(calcPVO(candles, 2, 0, 2)).toBeNull();
+		expect(calcPVO(candles, 2, 3, 0)).toBeNull();
+	});
+
 	it("should return null for insufficient data", () => {
 		expect(calcPVO([], 2, 3, 2)).toBeNull();
 		expect(calcPVO([candle(100, 101, 99, 100)], 2, 3, 2)).toBeNull();

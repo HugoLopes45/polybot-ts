@@ -116,6 +116,47 @@ describe("PriceHistoryClient", () => {
 			expect(isErr(result)).toBe(true);
 			if (isErr(result)) expect(result.error).toBeInstanceOf(RateLimitError);
 		});
+
+		it("includes retryAfterMs in RateLimitError", async () => {
+			const clock = new FakeClock(1000);
+			const rateLimiter = new TokenBucketRateLimiter({
+				capacity: 1,
+				refillRate: 2,
+				clock,
+			});
+			const provider = makeProvider({
+				getPriceHistory: async () => makePricePoints([1000, 0.5]),
+			});
+			const client = new PriceHistoryClient(provider, { rateLimiter });
+			await client.getPriceHistory(COND_A, "1h");
+			const result = await client.getPriceHistory(COND_A, "1d");
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) {
+				const rle = result.error as RateLimitError;
+				expect(rle.retryAfterMs).toBeGreaterThan(0);
+				expect(Number.isFinite(rle.retryAfterMs)).toBe(true);
+			}
+		});
+
+		it("returns Infinity retryAfterMs for non-refilling limiter", async () => {
+			const clock = new FakeClock(1000);
+			const rateLimiter = new TokenBucketRateLimiter({
+				capacity: 1,
+				refillRate: 0,
+				clock,
+			});
+			const provider = makeProvider({
+				getPriceHistory: async () => makePricePoints([1000, 0.5]),
+			});
+			const client = new PriceHistoryClient(provider, { rateLimiter });
+			await client.getPriceHistory(COND_A, "1h");
+			const result = await client.getPriceHistory(COND_A, "1d");
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) {
+				const rle = result.error as RateLimitError;
+				expect(rle.retryAfterMs).toBe(Number.POSITIVE_INFINITY);
+			}
+		});
 	});
 
 	describe("with cache", () => {
@@ -147,6 +188,25 @@ describe("PriceHistoryClient", () => {
 			await client.getPriceHistory(COND_A, "1h");
 			await client.getPriceHistory(COND_A, "1d");
 			expect(callCount).toBe(2);
+		});
+
+		it("tracks cache write errors with counter", async () => {
+			const cache = new Cache<PricePoint[]>({ ttl: 60_000, maxSize: 100 });
+			cache.set = () => {
+				throw new Error("cache write failed");
+			};
+			const provider = makeProvider({
+				getPriceHistory: async () => makePricePoints([1000, 0.5]),
+			});
+			const client = new PriceHistoryClient(provider, { cache });
+
+			const result1 = await client.getPriceHistory(COND_A, "1h");
+			expect(isOk(result1)).toBe(true);
+			expect(client.cacheWriteErrors).toBe(1);
+
+			const result2 = await client.getPriceHistory(COND_A, "1d");
+			expect(isOk(result2)).toBe(true);
+			expect(client.cacheWriteErrors).toBe(2);
 		});
 	});
 });

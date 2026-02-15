@@ -1,5 +1,4 @@
 import { Decimal } from "../shared/decimal.js";
-import type { Clock } from "../shared/time.js";
 import type { Candle, Interval } from "./types.js";
 import { INTERVAL_MS } from "./types.js";
 
@@ -18,14 +17,11 @@ const ALL_INTERVALS: readonly Interval[] = ["1m", "5m", "15m", "1h", "4h", "1d"]
  * Aggregates raw trades into OHLCV candlesticks across all supported intervals.
  *
  * Uses sparse storage — only intervals with actual trades produce candles.
- * Clock-injected for deterministic testing.
  */
 export class KLineAggregator {
-	private readonly clock: Clock;
 	private readonly candles: Map<Interval, Map<number, MutableCandle>>;
 
-	constructor(clock: Clock) {
-		this.clock = clock;
+	constructor() {
 		this.candles = new Map();
 		for (const interval of ALL_INTERVALS) {
 			this.candles.set(interval, new Map());
@@ -58,6 +54,13 @@ export class KLineAggregator {
 		}
 	}
 
+	/**
+	 * Returns the most recent candles for the given interval.
+	 * @param interval - The time interval to query
+	 * @param count - Maximum number of candles to return
+	 * @returns Candles in reverse-chronological order (most recent first)
+	 * @warning Results are sorted most recent first. Use `getCandlesChronological()` for oldest-first order.
+	 */
 	getCandles(interval: Interval, count: number): readonly Candle[] {
 		const bucketMap = this.candles.get(interval);
 		if (!bucketMap || bucketMap.size === 0) return [];
@@ -72,5 +75,17 @@ export class KLineAggregator {
 			volume: c.volume,
 			timestampMs: c.timestampMs,
 		}));
+	}
+
+	/**
+	 * Returns the most recent candles in chronological order (oldest first).
+	 * This is the order expected by indicator functions.
+	 * @param interval - The time interval to query
+	 * @param count - Maximum number of candles to return
+	 * @returns Candles in chronological order (oldest first)
+	 */
+	getCandlesChronological(interval: Interval, count?: number): readonly Candle[] {
+		const candles = this.getCandles(interval, count ?? Number.POSITIVE_INFINITY);
+		return [...candles].reverse();
 	}
 }

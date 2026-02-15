@@ -7,7 +7,7 @@ import { type Result, err, ok } from "../shared/result.js";
 
 export type PriceInterval = "max" | "1w" | "1d" | "6h" | "1h";
 
-export const VALID_INTERVALS: ReadonlySet<string> = new Set<PriceInterval>([
+export const VALID_INTERVALS: ReadonlySet<PriceInterval> = new Set<PriceInterval>([
 	"max",
 	"1w",
 	"1d",
@@ -37,11 +37,16 @@ export class PriceHistoryClient {
 	private readonly provider: PriceHistoryProvider;
 	private readonly rateLimiter: TokenBucketRateLimiter | undefined;
 	private readonly cache: Cache<PricePoint[]> | undefined;
+	private _cacheWriteErrors = 0;
 
 	constructor(provider: PriceHistoryProvider, config?: PriceHistoryClientConfig) {
 		this.provider = provider;
 		this.rateLimiter = config?.rateLimiter;
 		this.cache = config?.cache;
+	}
+
+	get cacheWriteErrors(): number {
+		return this._cacheWriteErrors;
 	}
 
 	async getPriceHistory(
@@ -76,7 +81,12 @@ export class PriceHistoryClient {
 		}
 
 		if (this.rateLimiter && !this.rateLimiter.tryAcquire()) {
-			return err(new RateLimitError("Rate limit exceeded for getPriceHistory", 1000));
+			return err(
+				new RateLimitError(
+					"Rate limit exceeded for getPriceHistory",
+					this.rateLimiter.timeUntilNextTokenMs(),
+				),
+			);
 		}
 
 		let points: PricePoint[];
@@ -93,7 +103,7 @@ export class PriceHistoryClient {
 				this.cache.set(cacheKey, sorted);
 			}
 		} catch {
-			// Cache write failure must not lose successful API result
+			this._cacheWriteErrors++;
 		}
 
 		return ok(sorted);

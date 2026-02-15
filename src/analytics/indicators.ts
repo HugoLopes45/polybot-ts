@@ -1,12 +1,15 @@
 import { Decimal } from "../shared/decimal.js";
-
-// Safe indexed access — callers ensure bounds via length checks before calling.
-// biome-ignore lint/style/noNonNullAssertion: bounds validated by callers
-const at = (arr: readonly Decimal[], i: number): Decimal => arr[i]!;
+import { at } from "./helpers.js";
+import type { BandResult } from "./types.js";
 
 /**
  * Simple Moving Average over the last `period` closes.
- * Returns null if insufficient data or invalid period.
+ *
+ * Requires at least `period` data points.
+ *
+ * @param closes - Array of closing prices
+ * @param period - Lookback period
+ * @returns SMA value or null if insufficient data or invalid period
  */
 export function calcSMA(closes: readonly Decimal[], period: number): Decimal | null {
 	if (period < 1 || closes.length < period) return null;
@@ -23,7 +26,12 @@ export function calcSMA(closes: readonly Decimal[], period: number): Decimal | n
  *
  * Seeded with SMA of the first `period` values, then smoothed with
  * multiplier = 2/(period+1) for remaining values.
- * Returns null if insufficient data or invalid period.
+ *
+ * Requires at least `period` data points.
+ *
+ * @param closes - Array of closing prices
+ * @param period - Lookback period
+ * @returns EMA value or null if insufficient data or invalid period
  */
 export function calcEMA(closes: readonly Decimal[], period: number): Decimal | null {
 	if (period < 1 || closes.length < period) return null;
@@ -51,6 +59,10 @@ export function calcEMA(closes: readonly Decimal[], period: number): Decimal | n
  *
  * Requires at least `period + 1` data points (to compute `period` changes).
  * Returns 100 when avgLoss is zero (all gains), 0 when avgGain is zero (all losses).
+ *
+ * @param closes - Array of closing prices
+ * @param period - Lookback period (default 14)
+ * @returns RSI value (0-100) or null if insufficient data
  */
 export function calcRSI(closes: readonly Decimal[], period = 14): Decimal | null {
 	if (period < 1 || closes.length < period + 1) return null;
@@ -100,12 +112,19 @@ export function calcRSI(closes: readonly Decimal[], period = 14): Decimal | null
  *
  * Uses `Math.sqrt` on Decimal variance (sufficient precision for
  * prediction market prices bounded [0,1]).
+ *
+ * Requires at least `period` data points.
+ *
+ * @param closes - Array of closing prices
+ * @param period - Lookback period (default 20)
+ * @param stdDevMultiplier - Standard deviation multiplier (default 2)
+ * @returns Bollinger Bands (upper/middle/lower) or null if insufficient data
  */
 export function calcBollingerBands(
 	closes: readonly Decimal[],
 	period = 20,
 	stdDevMultiplier = 2,
-): { readonly upper: Decimal; readonly middle: Decimal; readonly lower: Decimal } | null {
+): BandResult | null {
 	if (period < 1 || closes.length < period) return null;
 
 	const middle = calcSMA(closes, period);

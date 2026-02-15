@@ -1,53 +1,17 @@
 import { Decimal } from "../shared/decimal.js";
+import { at, atCandle, slidingHigh, slidingLow, trueRange } from "./helpers.js";
 import { calcEMA } from "./indicators.js";
-import type { Candle } from "./types.js";
+import type { BandResult, Candle } from "./types.js";
 
-function at(arr: readonly Decimal[], i: number): Decimal {
-	// biome-ignore lint/style/noNonNullAssertion: bounds validated by callers
-	return arr[i]!;
-}
-
-function atCandle(arr: readonly Candle[], i: number): Candle {
-	// biome-ignore lint/style/noNonNullAssertion: bounds validated by callers
-	return arr[i]!;
-}
-
-function trueRange(candle: Candle, prevClose: Decimal): Decimal {
-	const hl = candle.high.sub(candle.low);
-	const hc = candle.high.sub(prevClose).abs();
-	const lc = candle.low.sub(prevClose).abs();
-
-	return Decimal.max(hl, Decimal.max(hc, lc));
-}
-
-function slidingHigh(values: readonly Decimal[], period: number, endIdx: number): Decimal {
-	const start = endIdx - period + 1;
-	let max = at(values, start);
-
-	for (let i = start + 1; i <= endIdx; i++) {
-		const current = at(values, i);
-		if (current.gt(max)) {
-			max = current;
-		}
-	}
-
-	return max;
-}
-
-function slidingLow(values: readonly Decimal[], period: number, endIdx: number): Decimal {
-	const start = endIdx - period + 1;
-	let min = at(values, start);
-
-	for (let i = start + 1; i <= endIdx; i++) {
-		const current = at(values, i);
-		if (current.lt(min)) {
-			min = current;
-		}
-	}
-
-	return min;
-}
-
+/**
+ * Average True Range (ATR)
+ *
+ * Requires at least `period + 1` candles.
+ *
+ * @param candles - Array of candles
+ * @param period - Lookback period (default 14)
+ * @returns ATR value or null if insufficient data
+ */
 export function calcATR(candles: readonly Candle[], period = 14): Decimal | null {
 	if (period < 1 || candles.length < period + 1) {
 		return null;
@@ -79,10 +43,16 @@ export function calcATR(candles: readonly Candle[], period = 14): Decimal | null
 	return atr;
 }
 
-export function calcDonchian(
-	candles: readonly Candle[],
-	period = 20,
-): { readonly upper: Decimal; readonly middle: Decimal; readonly lower: Decimal } | null {
+/**
+ * Donchian Channels
+ *
+ * Requires at least `period` candles.
+ *
+ * @param candles - Array of candles
+ * @param period - Lookback period (default 20)
+ * @returns Donchian channels (upper/middle/lower) or null if insufficient data
+ */
+export function calcDonchian(candles: readonly Candle[], period = 20): BandResult | null {
 	if (period < 1 || candles.length < period) {
 		return null;
 	}
@@ -90,18 +60,26 @@ export function calcDonchian(
 	const highs = candles.map((c) => c.high);
 	const lows = candles.map((c) => c.low);
 
-	const upper = slidingHigh(highs, period, candles.length - 1);
-	const lower = slidingLow(lows, period, candles.length - 1);
+	const endIdx = candles.length - 1;
+	const startIdx = endIdx - period + 1;
+	const upper = slidingHigh(highs, startIdx, endIdx);
+	const lower = slidingLow(lows, startIdx, endIdx);
 	const middle = upper.add(lower).div(Decimal.from(2));
 
 	return { upper, middle, lower };
 }
 
-export function calcKeltner(
-	candles: readonly Candle[],
-	period = 20,
-	mult = 2,
-): { readonly upper: Decimal; readonly middle: Decimal; readonly lower: Decimal } | null {
+/**
+ * Keltner Channels
+ *
+ * Requires at least `period + 1` candles.
+ *
+ * @param candles - Array of candles
+ * @param period - Lookback period (default 20)
+ * @param mult - ATR multiplier (default 2)
+ * @returns Keltner channels (upper/middle/lower) or null if insufficient data
+ */
+export function calcKeltner(candles: readonly Candle[], period = 20, mult = 2): BandResult | null {
 	if (period < 1 || candles.length < period + 1) {
 		return null;
 	}
@@ -126,6 +104,16 @@ export function calcKeltner(
 	return { upper, middle, lower };
 }
 
+/**
+ * Chandelier Exit
+ *
+ * Requires at least `period + 1` candles.
+ *
+ * @param candles - Array of candles
+ * @param period - Lookback period (default 22)
+ * @param mult - ATR multiplier (default 3)
+ * @returns Chandelier exits (long/short) or null if insufficient data
+ */
 export function calcChandelier(
 	candles: readonly Candle[],
 	period = 22,
@@ -138,8 +126,10 @@ export function calcChandelier(
 	const highs = candles.map((c) => c.high);
 	const lows = candles.map((c) => c.low);
 
-	const highestHigh = slidingHigh(highs, period, candles.length - 1);
-	const lowestLow = slidingLow(lows, period, candles.length - 1);
+	const endIdx = candles.length - 1;
+	const startIdx = endIdx - period + 1;
+	const highestHigh = slidingHigh(highs, startIdx, endIdx);
+	const lowestLow = slidingLow(lows, startIdx, endIdx);
 
 	const atr = calcATR(candles, period);
 

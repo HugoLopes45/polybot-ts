@@ -1,5 +1,5 @@
-export type { Candle, Interval } from "./types.js";
-export { INTERVAL_MS } from "./types.js";
+export type { Candle, Interval, BandResult, MACDResult, StochasticResult } from "./types.js";
+export { INTERVAL_MS, createCandle } from "./types.js";
 export { KLineAggregator } from "./kline-aggregator.js";
 export { calcSMA, calcEMA, calcRSI, calcBollingerBands } from "./indicators.js";
 export {

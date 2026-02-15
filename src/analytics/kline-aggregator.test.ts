@@ -1,14 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { Decimal } from "../shared/decimal.js";
-import { FakeClock } from "../shared/time.js";
 import { KLineAggregator } from "./kline-aggregator.js";
 import { INTERVAL_MS } from "./types.js";
 
 describe("KLineAggregator", () => {
-	function setup(startMs = 0) {
-		const clock = new FakeClock(startMs);
-		const agg = new KLineAggregator(clock);
-		return { agg, clock };
+	function setup() {
+		const agg = new KLineAggregator();
+		return { agg };
 	}
 
 	describe("addTrade + getCandles basics", () => {
@@ -158,6 +156,48 @@ describe("KLineAggregator", () => {
 			expect(candles[0]?.timestampMs).toBe(120_000);
 			expect(candles[1]?.timestampMs).toBe(60_000);
 			expect(candles[2]?.timestampMs).toBe(0);
+		});
+	});
+
+	describe("getCandlesChronological", () => {
+		it("returns candles in oldest-first order", () => {
+			const { agg } = setup();
+			agg.addTrade(Decimal.from("0.50"), Decimal.from("10"), 0);
+			agg.addTrade(Decimal.from("0.55"), Decimal.from("10"), 60_000);
+			agg.addTrade(Decimal.from("0.60"), Decimal.from("10"), 120_000);
+
+			const candles = agg.getCandlesChronological("1m");
+			expect(candles).toHaveLength(3);
+			expect(candles[0]?.timestampMs).toBe(0);
+			expect(candles[1]?.timestampMs).toBe(60_000);
+			expect(candles[2]?.timestampMs).toBe(120_000);
+		});
+
+		it("returns empty array when no trades", () => {
+			const { agg } = setup();
+			expect(agg.getCandlesChronological("1m")).toEqual([]);
+		});
+
+		it("limits returned candle count", () => {
+			const { agg } = setup();
+			agg.addTrade(Decimal.from("0.50"), Decimal.from("10"), 0);
+			agg.addTrade(Decimal.from("0.51"), Decimal.from("10"), 60_000);
+			agg.addTrade(Decimal.from("0.52"), Decimal.from("10"), 120_000);
+
+			const candles = agg.getCandlesChronological("1m", 2);
+			expect(candles).toHaveLength(2);
+			// Most recent 2, in chronological order
+			expect(candles[0]?.close.toString()).toBe("0.51");
+			expect(candles[1]?.close.toString()).toBe("0.52");
+		});
+
+		it("returns all candles when count omitted", () => {
+			const { agg } = setup();
+			agg.addTrade(Decimal.from("0.50"), Decimal.from("10"), 0);
+			agg.addTrade(Decimal.from("0.51"), Decimal.from("10"), 60_000);
+
+			const candles = agg.getCandlesChronological("1m");
+			expect(candles).toHaveLength(2);
 		});
 	});
 

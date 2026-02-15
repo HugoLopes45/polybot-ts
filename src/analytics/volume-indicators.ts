@@ -1,12 +1,7 @@
 import { Decimal } from "../shared/decimal.js";
+import { at, atCandle } from "./helpers.js";
 import { calcEMA } from "./indicators.js";
 import type { Candle } from "./types.js";
-
-// biome-ignore lint/style/noNonNullAssertion: bounds validated by callers
-const at = (arr: readonly Decimal[], i: number): Decimal => arr[i]!;
-
-// biome-ignore lint/style/noNonNullAssertion: bounds validated by callers
-const atCandle = (arr: readonly Candle[], i: number): Candle => arr[i]!;
 
 /**
  * Close Location Value: ((C-L)-(H-C))/(H-L)
@@ -25,7 +20,7 @@ const clv = (candle: Candle): Decimal => {
 /**
  * Builds a full EMA series (all intermediate values) for use in PVO signal calculation.
  */
-const calcEMASeries = (values: readonly Decimal[], period: number): Decimal[] | null => {
+const calcEMASeriesRaw = (values: readonly Decimal[], period: number): Decimal[] | null => {
 	if (values.length < period) {
 		return null;
 	}
@@ -85,7 +80,7 @@ export const calcOBV = (candles: readonly Candle[]): Decimal | null => {
  * @returns VWMA value or null if insufficient data or zero volume
  */
 export const calcVWMA = (candles: readonly Candle[], period = 20): Decimal | null => {
-	if (candles.length < period) {
+	if (period < 1 || candles.length < period) {
 		return null;
 	}
 
@@ -116,7 +111,7 @@ export const calcVWMA = (candles: readonly Candle[], period = 20): Decimal | nul
  */
 export const calcMFI = (candles: readonly Candle[], period = 14): Decimal | null => {
 	// Need period + 1 candles (period changes in typical price)
-	if (candles.length < period + 1) {
+	if (period < 1 || candles.length < period + 1) {
 		return null;
 	}
 
@@ -193,7 +188,7 @@ export const calcADL = (candles: readonly Candle[]): Decimal | null => {
  * @returns CMF value or null if insufficient data or zero volume
  */
 export const calcCMF = (candles: readonly Candle[], period = 20): Decimal | null => {
-	if (candles.length < period) {
+	if (period < 1 || candles.length < period) {
 		return null;
 	}
 
@@ -225,7 +220,7 @@ export const calcCMF = (candles: readonly Candle[], period = 20): Decimal | null
  */
 export const calcForceIndex = (candles: readonly Candle[], period = 13): Decimal | null => {
 	// Need period + 1 candles (period FI values for EMA)
-	if (candles.length < period + 1) {
+	if (period < 1 || candles.length < period + 1) {
 		return null;
 	}
 
@@ -245,6 +240,8 @@ export const calcForceIndex = (candles: readonly Candle[], period = 13): Decimal
 /**
  * Negative Volume Index (NVI)
  * Tracks cumulative price changes on volume down days.
+ *
+ * Note: Candles with zero previous close are skipped to avoid division by zero.
  *
  * @param candles - Array of candles
  * @param start - Starting NVI value (default 1000)
@@ -280,6 +277,8 @@ export const calcNVI = (candles: readonly Candle[], start = 1000): Decimal | nul
  * Volume Price Trend (VPT)
  * Cumulative indicator of volume * percent price change.
  *
+ * Note: Candles with zero previous close are skipped to avoid division by zero.
+ *
  * @param candles - Array of candles
  * @returns VPT value or null if insufficient data
  */
@@ -310,6 +309,8 @@ export const calcVPT = (candles: readonly Candle[]): Decimal | null => {
  * Percentage Volume Oscillator (PVO)
  * MACD-style oscillator applied to volume.
  *
+ * Note: PVO values with zero slow EMA are skipped to avoid division by zero.
+ *
  * @param candles - Array of candles
  * @param fast - Fast EMA period (default 12)
  * @param slow - Slow EMA period (default 26)
@@ -322,6 +323,9 @@ export const calcPVO = (
 	slow = 26,
 	signal = 9,
 ): { readonly pvo: Decimal; readonly signal: Decimal; readonly histogram: Decimal } | null => {
+	if (fast < 1 || slow < 1 || signal < 1) {
+		return null;
+	}
 	// Need slow + signal - 1 candles minimum
 	const minData = slow + signal - 1;
 	if (candles.length < minData) {
@@ -335,8 +339,8 @@ export const calcPVO = (
 	}
 
 	// Build EMA series for fast and slow
-	const fastEMASeries = calcEMASeries(volumes, fast);
-	const slowEMASeries = calcEMASeries(volumes, slow);
+	const fastEMASeries = calcEMASeriesRaw(volumes, fast);
+	const slowEMASeries = calcEMASeriesRaw(volumes, slow);
 
 	if (!fastEMASeries || !slowEMASeries) {
 		return null;
@@ -363,7 +367,7 @@ export const calcPVO = (
 	}
 
 	// Build signal EMA series
-	const signalSeries = calcEMASeries(pvoSeries, signal);
+	const signalSeries = calcEMASeriesRaw(pvoSeries, signal);
 	if (!signalSeries) {
 		return null;
 	}

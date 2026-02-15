@@ -56,7 +56,8 @@ describe("calcATR", () => {
 
 		const result = calcATR(candles, 2);
 		expect(result).not.toBeNull();
-		expect(result?.toNumber()).toBeGreaterThan(0);
+		// TR values: [25 (gap), 15, 15], ATR = (25+15)/2 = 20, then smoothed with 15
+		expect(result?.toNumber()).toBeCloseTo(17.5, 1);
 	});
 });
 
