@@ -5,6 +5,7 @@ import {
 	ErrorCategory,
 	InsufficientBalanceError,
 	NetworkError,
+	OrderNotFoundError,
 	OrderRejectedError,
 	RateLimitError,
 	SystemError,
@@ -12,10 +13,14 @@ import {
 	TradingError,
 	classifyError,
 	isAuthError,
+	isConfigError,
 	isInsufficientBalance,
 	isNetworkError,
 	isOrderError,
+	isOrderNotFoundError,
 	isRateLimitError,
+	isSystemError,
+	isTimeoutError,
 } from "./errors.js";
 
 describe("TradingError hierarchy", () => {
@@ -218,6 +223,46 @@ describe("type guards", () => {
 		expect(isOrderError(undefined)).toBe(false);
 		expect(isInsufficientBalance(undefined)).toBe(false);
 	});
+
+	it("isConfigError returns true for ConfigError", () => {
+		expect(isConfigError(new ConfigError("bad config"))).toBe(true);
+	});
+
+	it("isConfigError returns false for other errors", () => {
+		expect(isConfigError(new NetworkError("fail"))).toBe(false);
+		expect(isConfigError(null)).toBe(false);
+		expect(isConfigError(undefined)).toBe(false);
+	});
+
+	it("isSystemError returns true for SystemError", () => {
+		expect(isSystemError(new SystemError("panic"))).toBe(true);
+	});
+
+	it("isSystemError returns false for other errors", () => {
+		expect(isSystemError(new NetworkError("fail"))).toBe(false);
+		expect(isSystemError(null)).toBe(false);
+		expect(isSystemError(undefined)).toBe(false);
+	});
+
+	it("isTimeoutError returns true for TimeoutError", () => {
+		expect(isTimeoutError(new TimeoutError("timeout"))).toBe(true);
+	});
+
+	it("isTimeoutError returns false for other errors", () => {
+		expect(isTimeoutError(new NetworkError("fail"))).toBe(false);
+		expect(isTimeoutError(null)).toBe(false);
+		expect(isTimeoutError(undefined)).toBe(false);
+	});
+
+	it("isOrderNotFoundError returns true for OrderNotFoundError", () => {
+		expect(isOrderNotFoundError(new OrderNotFoundError("not found"))).toBe(true);
+	});
+
+	it("isOrderNotFoundError returns false for other errors", () => {
+		expect(isOrderNotFoundError(new OrderRejectedError("rejected"))).toBe(false);
+		expect(isOrderNotFoundError(null)).toBe(false);
+		expect(isOrderNotFoundError(undefined)).toBe(false);
+	});
 });
 
 describe("classifyError edge cases", () => {
@@ -246,6 +291,108 @@ describe("classifyError edge cases", () => {
 
 	it("classifies ENOTFOUND as NetworkError", () => {
 		const e = classifyError(new Error("getaddrinfo ENOTFOUND api.example.com"));
+		expect(e).toBeInstanceOf(NetworkError);
+	});
+});
+
+describe("classifyError error.code handling", () => {
+	it("classifies ETIMEDOUT code as TimeoutError", () => {
+		const original = new Error("request failed") as NodeJS.ErrnoException;
+		original.code = "ETIMEDOUT";
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(TimeoutError);
+		expect(e.cause).toBe(original);
+	});
+
+	it("classifies ECONNREFUSED code as NetworkError", () => {
+		const original = new Error("connection failed") as NodeJS.ErrnoException;
+		original.code = "ECONNREFUSED";
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(NetworkError);
+		expect(e.cause).toBe(original);
+	});
+
+	it("classifies ENOTFOUND code as NetworkError", () => {
+		const original = new Error("dns failed") as NodeJS.ErrnoException;
+		original.code = "ENOTFOUND";
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(NetworkError);
+		expect(e.cause).toBe(original);
+	});
+
+	it("classifies ECONNRESET code as NetworkError", () => {
+		const original = new Error("connection reset") as NodeJS.ErrnoException;
+		original.code = "ECONNRESET";
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(NetworkError);
+		expect(e.cause).toBe(original);
+	});
+});
+
+describe("classifyError preserves cause chain", () => {
+	it("preserves original error as cause for TimeoutError", () => {
+		const original = new Error("request timed out");
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(TimeoutError);
+		expect(e.cause).toBe(original);
+	});
+
+	it("preserves original error as cause for NetworkError", () => {
+		const original = new Error("ECONNREFUSED");
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(NetworkError);
+		expect(e.cause).toBe(original);
+	});
+
+	it("preserves original error as cause for RateLimitError", () => {
+		const original = new Error("429 Too Many Requests");
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(RateLimitError);
+		expect(e.cause).toBe(original);
+	});
+
+	it("preserves original error as cause for SystemError", () => {
+		const original = new Error("unexpected error");
+		const e = classifyError(original);
+		expect(e).toBeInstanceOf(SystemError);
+		expect(e.cause).toBe(original);
+	});
+
+	it("does not set cause for TradingError pass-through", () => {
+		const original = new AuthError("bad key");
+		const e = classifyError(original);
+		expect(e).toBe(original);
+		expect(e.cause).toBeUndefined();
+	});
+
+	it("preserves non-Error thrown values as cause", () => {
+		const e = classifyError("string error");
+		expect(e).toBeInstanceOf(SystemError);
+		expect(e.cause).toBe("string error");
+	});
+
+	it("preserves object thrown values as cause", () => {
+		const obj = { code: 500, details: "internal" };
+		const e = classifyError(obj);
+		expect(e).toBeInstanceOf(SystemError);
+		expect(e.cause).toBe(obj);
+	});
+
+	it("preserves null thrown value as cause", () => {
+		const e = classifyError(null);
+		expect(e).toBeInstanceOf(SystemError);
+		expect(e.cause).toBe(null);
+	});
+});
+
+describe("classifyError message matching precision", () => {
+	it("does not classify 'fetch user data' as NetworkError (only 'fetch failed')", () => {
+		const e = classifyError(new Error("Could not fetch user preferences"));
+		expect(e).toBeInstanceOf(SystemError);
+	});
+
+	it("classifies 'fetch failed' as NetworkError", () => {
+		const e = classifyError(new Error("fetch failed: network unreachable"));
 		expect(e).toBeInstanceOf(NetworkError);
 	});
 });

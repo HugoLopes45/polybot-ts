@@ -43,6 +43,10 @@ export {
 	isAuthError,
 	isOrderError,
 	isInsufficientBalance,
+	isConfigError,
+	isSystemError,
+	isTimeoutError,
+	isOrderNotFoundError,
 } from "./errors.js";
 
 export { Decimal } from "./decimal.js";

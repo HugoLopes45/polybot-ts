@@ -14,6 +14,11 @@ export const ErrorCategory = {
 
 export type ErrorCategory = (typeof ErrorCategory)[keyof typeof ErrorCategory];
 
+/** Options for constructing TradingError subclasses with optional cause chain. */
+interface TradingErrorOptions {
+	readonly cause?: unknown;
+}
+
 /** Base error class for all trading operations, with category-based retry semantics. */
 export class TradingError extends Error {
 	readonly category: ErrorCategory;
@@ -57,27 +62,37 @@ export class TradingError extends Error {
 
 /** Retryable error for network connectivity failures. */
 export class NetworkError extends TradingError {
-	constructor(message: string, context: Record<string, unknown> = {}) {
-		super(message, "NETWORK_ERROR", ErrorCategory.Retryable, context);
+	constructor(message: string, context: Record<string, unknown> & TradingErrorOptions = {}) {
+		const { cause, ...rest } = context;
+		super(message, "NETWORK_ERROR", ErrorCategory.Retryable, rest);
 		this.name = "NetworkError";
+		if (cause !== undefined) this.cause = cause;
 	}
 }
 
 /** Retryable error for request timeouts. */
 export class TimeoutError extends TradingError {
-	constructor(message: string, context: Record<string, unknown> = {}) {
-		super(message, "TIMEOUT_ERROR", ErrorCategory.Retryable, context);
+	constructor(message: string, context: Record<string, unknown> & TradingErrorOptions = {}) {
+		const { cause, ...rest } = context;
+		super(message, "TIMEOUT_ERROR", ErrorCategory.Retryable, rest);
 		this.name = "TimeoutError";
+		if (cause !== undefined) this.cause = cause;
 	}
 }
 
 /** Retryable error for rate-limit (HTTP 429) responses; includes retry-after hint. */
 export class RateLimitError extends TradingError {
 	readonly retryAfterMs: number;
-	constructor(message: string, retryAfterMs: number, context: Record<string, unknown> = {}) {
-		super(message, "RATE_LIMIT_ERROR", ErrorCategory.Retryable, context);
+	constructor(
+		message: string,
+		retryAfterMs: number,
+		context: Record<string, unknown> & TradingErrorOptions = {},
+	) {
+		const { cause, ...rest } = context;
+		super(message, "RATE_LIMIT_ERROR", ErrorCategory.Retryable, rest);
 		this.name = "RateLimitError";
 		this.retryAfterMs = retryAfterMs;
+		if (cause !== undefined) this.cause = cause;
 	}
 
 	override toJSON(): Record<string, unknown> {
@@ -130,31 +145,41 @@ export class ConfigError extends TradingError {
 
 /** Fatal error for unexpected internal failures. */
 export class SystemError extends TradingError {
-	constructor(message: string, context: Record<string, unknown> = {}) {
-		super(message, "SYSTEM_ERROR", ErrorCategory.Fatal, context);
+	constructor(message: string, context: Record<string, unknown> & TradingErrorOptions = {}) {
+		const { cause, ...rest } = context;
+		super(message, "SYSTEM_ERROR", ErrorCategory.Fatal, rest);
 		this.name = "SystemError";
+		if (cause !== undefined) this.cause = cause;
 	}
 }
 
 // ── Classification helper ────────────────────────────────────────────
 
-/** Classify an unknown error into the appropriate TradingError subtype by inspecting the message. */
+/** Classify an unknown error into the appropriate TradingError subtype by inspecting the message and error code. */
 export function classifyError(error: unknown): TradingError {
 	if (error instanceof TradingError) return error;
 	if (error instanceof Error) {
 		const msg = error.message.toLowerCase();
-		if (msg.includes("timeout") || msg.includes("timed out")) {
-			return new TimeoutError(error.message);
+		const code = (error as NodeJS.ErrnoException).code;
+		if (msg.includes("timeout") || msg.includes("timed out") || code === "ETIMEDOUT") {
+			return new TimeoutError(error.message, { cause: error });
 		}
-		if (msg.includes("econnrefused") || msg.includes("enotfound") || msg.includes("fetch")) {
-			return new NetworkError(error.message);
+		if (
+			msg.includes("econnrefused") ||
+			msg.includes("enotfound") ||
+			msg.includes("fetch failed") ||
+			code === "ECONNREFUSED" ||
+			code === "ENOTFOUND" ||
+			code === "ECONNRESET"
+		) {
+			return new NetworkError(error.message, { cause: error });
 		}
 		if (msg.includes("rate limit") || msg.includes("429")) {
-			return new RateLimitError(error.message, 1000);
+			return new RateLimitError(error.message, 1000, { cause: error });
 		}
-		return new SystemError(error.message);
+		return new SystemError(error.message, { cause: error });
 	}
-	return new SystemError(String(error));
+	return new SystemError(String(error), { cause: error });
 }
 
 // ── Type guards ──────────────────────────────────────────────────────
@@ -182,4 +207,24 @@ export function isOrderError(e: unknown): e is OrderRejectedError {
 /** Type guard for InsufficientBalanceError. */
 export function isInsufficientBalance(e: unknown): e is InsufficientBalanceError {
 	return e instanceof InsufficientBalanceError;
+}
+
+/** Type guard for ConfigError. */
+export function isConfigError(e: unknown): e is ConfigError {
+	return e instanceof ConfigError;
+}
+
+/** Type guard for SystemError. */
+export function isSystemError(e: unknown): e is SystemError {
+	return e instanceof SystemError;
+}
+
+/** Type guard for TimeoutError. */
+export function isTimeoutError(e: unknown): e is TimeoutError {
+	return e instanceof TimeoutError;
+}
+
+/** Type guard for OrderNotFoundError. */
+export function isOrderNotFoundError(e: unknown): e is OrderNotFoundError {
+	return e instanceof OrderNotFoundError;
 }
