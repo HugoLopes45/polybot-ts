@@ -409,6 +409,14 @@ describe("MarketCatalog discovery methods", () => {
 		});
 	});
 
+	it("returns ok with empty array for empty results", async () => {
+		const deps = makeDeps({ getTrending: async () => [] });
+		const catalog = new MarketCatalog(deps);
+		const result = await catalog.getTrending(5);
+		expect(isOk(result)).toBe(true);
+		if (isOk(result)) expect(result.value).toEqual([]);
+	});
+
 	it("returns err when provider throws", async () => {
 		const deps = makeDeps({
 			getTrending: async () => {
@@ -418,14 +426,95 @@ describe("MarketCatalog discovery methods", () => {
 		const catalog = new MarketCatalog(deps);
 		const result = await catalog.getTrending(5);
 		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error.category).toBe(ErrorCategory.Retryable);
 	});
 
-	it("returns ok with empty array for empty results", async () => {
-		const deps = makeDeps({ getTrending: async () => [] });
-		const catalog = new MarketCatalog(deps);
-		const result = await catalog.getTrending(5);
-		expect(isOk(result)).toBe(true);
-		if (isOk(result)) expect(result.value).toEqual([]);
+	describe("getTopByVolume throws handling", () => {
+		it("returns err when provider throws", async () => {
+			const deps = makeDeps({
+				getTopByVolume: async () => {
+					throw new Error("connection refused via econnrefused");
+				},
+			});
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getTopByVolume(5);
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) expect(result.error.category).toBe(ErrorCategory.Retryable);
+		});
+
+		it("returns ok with empty array for empty results", async () => {
+			const deps = makeDeps({ getTopByVolume: async () => [] });
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getTopByVolume(5);
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) expect(result.value).toEqual([]);
+		});
+	});
+
+	describe("getTopByLiquidity throws handling", () => {
+		it("returns err when provider throws", async () => {
+			const deps = makeDeps({
+				getTopByLiquidity: async () => {
+					throw new Error("connection refused via econnrefused");
+				},
+			});
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getTopByLiquidity(3);
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) expect(result.error.category).toBe(ErrorCategory.Retryable);
+		});
+
+		it("returns ok with empty array for empty results", async () => {
+			const deps = makeDeps({ getTopByLiquidity: async () => [] });
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getTopByLiquidity(3);
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) expect(result.value).toEqual([]);
+		});
+	});
+
+	describe("getByCategory throws handling", () => {
+		it("returns err when provider throws", async () => {
+			const deps = makeDeps({
+				getByCategory: async () => {
+					throw new Error("connection refused via econnrefused");
+				},
+			});
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getByCategory("sports");
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) expect(result.error.category).toBe(ErrorCategory.Retryable);
+		});
+
+		it("returns ok with empty array for empty results", async () => {
+			const deps = makeDeps({ getByCategory: async () => [] });
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getByCategory("sports");
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) expect(result.value).toEqual([]);
+		});
+	});
+
+	describe("getActiveEvents throws handling", () => {
+		it("returns err when provider throws", async () => {
+			const deps = makeDeps({
+				getActiveEvents: async () => {
+					throw new Error("timeout");
+				},
+			});
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getActiveEvents();
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) expect(result.error.category).toBe(ErrorCategory.Retryable);
+		});
+
+		it("returns ok with empty array for empty results", async () => {
+			const deps = makeDeps({ getActiveEvents: async () => [] });
+			const catalog = new MarketCatalog(deps);
+			const result = await catalog.getActiveEvents();
+			expect(isOk(result)).toBe(true);
+			if (isOk(result)) expect(result.value).toEqual([]);
+		});
 	});
 
 	it("validates limit >= 1", async () => {
@@ -484,6 +573,125 @@ describe("MarketCatalog discovery methods", () => {
 		if (isErr(result)) expect(result.error.code).toBe("INVALID_CATEGORY");
 	});
 
+	describe("rate limiter integration with discovery", () => {
+		it("getTrending blocks when rate limiter exhausted", async () => {
+			const deps = makeDeps({ getTrending: async () => [MARKET_A, MARKET_B] });
+			const clock = new FakeClock(1000);
+			const rateLimiter = new TokenBucketRateLimiter({
+				capacity: 1,
+				refillRate: 0,
+				clock,
+			});
+			const catalog = new MarketCatalog(deps, { clock, rateLimiter });
+
+			await catalog.getTrending(10);
+			const result = await catalog.getTrending(10);
+
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) {
+				expect(result.error).toBeInstanceOf(RateLimitError);
+			}
+		});
+
+		it("getTopByVolume blocks when rate limiter exhausted", async () => {
+			const deps = makeDeps({ getTopByVolume: async () => [MARKET_A] });
+			const clock = new FakeClock(1000);
+			const rateLimiter = new TokenBucketRateLimiter({
+				capacity: 1,
+				refillRate: 0,
+				clock,
+			});
+			const catalog = new MarketCatalog(deps, { clock, rateLimiter });
+
+			await catalog.getTopByVolume(5);
+			const result = await catalog.getTopByVolume(5);
+
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) {
+				expect(result.error).toBeInstanceOf(RateLimitError);
+			}
+		});
+
+		it("getTopByLiquidity blocks when rate limiter exhausted", async () => {
+			const deps = makeDeps({ getTopByLiquidity: async () => [MARKET_B] });
+			const clock = new FakeClock(1000);
+			const rateLimiter = new TokenBucketRateLimiter({
+				capacity: 1,
+				refillRate: 0,
+				clock,
+			});
+			const catalog = new MarketCatalog(deps, { clock, rateLimiter });
+
+			await catalog.getTopByLiquidity(3);
+			const result = await catalog.getTopByLiquidity(3);
+
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) {
+				expect(result.error).toBeInstanceOf(RateLimitError);
+			}
+		});
+
+		it("getByCategory blocks when rate limiter exhausted", async () => {
+			const deps = makeDeps({ getByCategory: async () => [MARKET_A, MARKET_B] });
+			const clock = new FakeClock(1000);
+			const rateLimiter = new TokenBucketRateLimiter({
+				capacity: 1,
+				refillRate: 0,
+				clock,
+			});
+			const catalog = new MarketCatalog(deps, { clock, rateLimiter });
+
+			await catalog.getByCategory("weather");
+			const result = await catalog.getByCategory("weather");
+
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) {
+				expect(result.error).toBeInstanceOf(RateLimitError);
+			}
+		});
+
+		it("getActiveEvents blocks when rate limiter exhausted", async () => {
+			const deps = makeDeps({ getActiveEvents: async () => [MARKET_A] });
+			const clock = new FakeClock(1000);
+			const rateLimiter = new TokenBucketRateLimiter({
+				capacity: 1,
+				refillRate: 0,
+				clock,
+			});
+			const catalog = new MarketCatalog(deps, { clock, rateLimiter });
+
+			await catalog.getActiveEvents();
+			const result = await catalog.getActiveEvents();
+
+			expect(isErr(result)).toBe(true);
+			if (isErr(result)) {
+				expect(result.error).toBeInstanceOf(RateLimitError);
+			}
+		});
+
+		it("discovery allows when tokens available", async () => {
+			let callCount = 0;
+			const deps = makeDeps({
+				getTrending: async () => {
+					callCount++;
+					return [MARKET_A];
+				},
+			});
+			const clock = new FakeClock(1000);
+			const rateLimiter = new TokenBucketRateLimiter({
+				capacity: 5,
+				refillRate: 10,
+				clock,
+			});
+			const catalog = new MarketCatalog(deps, { clock, rateLimiter });
+
+			await catalog.getTrending(10);
+			await catalog.getTrending(10);
+
+			expect(callCount).toBe(2);
+		});
+	});
+
 	it("classifies provider network errors as retryable", async () => {
 		const deps = makeDeps({
 			getTrending: async () => {
@@ -536,5 +744,90 @@ describe("MarketCatalog discovery methods", () => {
 		const result = await catalog.searchMarkets("query");
 		expect(isOk(result)).toBe(true);
 		expect(catalog.cacheWriteErrors).toBe(1);
+	});
+
+	describe("cache bounds", () => {
+		it("evicts oldest entry by expiresAtMs when maxCacheSize exceeded", async () => {
+			const clock = new FakeClock(1000);
+			let callCount = 0;
+			const deps = {
+				getMarket: async (id: string) => {
+					callCount++;
+					return {
+						conditionId: conditionId(id),
+						questionId: `q-${id}`,
+						question: `Question ${id}`,
+						description: `Desc ${id}`,
+						status: "active",
+						endDate: "2025-12-31",
+					};
+				},
+				searchMarkets: async () => [],
+			};
+			const service = new MarketCatalog(deps, {
+				clock,
+				cacheTtlMs: 60_000,
+				maxCacheSize: 3,
+			});
+
+			await service.getMarket(conditionId("a"));
+			clock.advance(1000);
+			await service.getMarket(conditionId("b"));
+			clock.advance(1000);
+			await service.getMarket(conditionId("c"));
+
+			expect(callCount).toBe(3);
+
+			clock.advance(1000);
+			await service.getMarket(conditionId("d"));
+
+			expect(callCount).toBe(4);
+
+			const resA = await service.getMarket(conditionId("a"));
+			expect(isOk(resA)).toBe(true);
+			expect(callCount).toBe(5);
+		});
+
+		it("uses default maxCacheSize of 1000", async () => {
+			const deps = {
+				getMarket: async () => MARKET_A,
+				searchMarkets: async () => [],
+			};
+			const service = new MarketCatalog(deps);
+
+			for (let i = 0; i < 1000; i++) {
+				await service.getMarket(conditionId(`cond-${i}`));
+			}
+
+			const result = await service.getMarket(conditionId("cond-0"));
+			expect(isOk(result)).toBe(true);
+		});
+
+		it("respects custom maxCacheSize configuration", async () => {
+			const clock = new FakeClock(1000);
+			const deps = {
+				getMarket: async (id: string) => ({
+					conditionId: conditionId(id),
+					questionId: `q-${id}`,
+					question: `Question ${id}`,
+					description: `Desc ${id}`,
+					status: "active",
+					endDate: "2025-12-31",
+				}),
+				searchMarkets: async () => [],
+			};
+			const service = new MarketCatalog(deps, {
+				clock,
+				cacheTtlMs: 60_000,
+				maxCacheSize: 2,
+			});
+
+			await service.getMarket(conditionId("a"));
+			await service.getMarket(conditionId("b"));
+			await service.getMarket(conditionId("c"));
+
+			const resA = await service.getMarket(conditionId("a"));
+			expect(isOk(resA)).toBe(true);
+		});
 	});
 });

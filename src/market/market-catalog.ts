@@ -33,6 +33,7 @@ export class MarketCatalog {
 	private readonly deps: MarketProviders;
 	private readonly clock: Clock;
 	private readonly cacheTtlMs: number;
+	private readonly maxCacheSize: number;
 	private readonly cache: Map<string, CacheEntry>;
 	private readonly searchCache: Cache<MarketInfo[]> | undefined;
 	private readonly rateLimiter: TokenBucketRateLimiter | undefined;
@@ -42,6 +43,7 @@ export class MarketCatalog {
 		deps: MarketProviders,
 		config?: {
 			cacheTtlMs?: number;
+			maxCacheSize?: number;
 			clock?: Clock;
 			searchCache?: Cache<MarketInfo[]>;
 			rateLimiter?: TokenBucketRateLimiter;
@@ -50,6 +52,7 @@ export class MarketCatalog {
 		this.deps = deps;
 		this.clock = config?.clock ?? SystemClock;
 		this.cacheTtlMs = config?.cacheTtlMs ?? 60_000;
+		this.maxCacheSize = config?.maxCacheSize ?? 1000;
 		this.cache = new Map();
 		this.searchCache = config?.searchCache;
 		this.rateLimiter = config?.rateLimiter;
@@ -90,6 +93,9 @@ export class MarketCatalog {
 		}
 
 		try {
+			if (this.cache.size >= this.maxCacheSize) {
+				this.evictOldest();
+			}
 			this.cache.set(key, {
 				market,
 				expiresAtMs: this.clock.now() + this.cacheTtlMs,
@@ -196,6 +202,14 @@ export class MarketCatalog {
 				),
 			);
 		}
+		if (this.rateLimiter && !this.rateLimiter.tryAcquire()) {
+			return err(
+				new RateLimitError(
+					`Rate limit exceeded for ${methodName}`,
+					this.rateLimiter.timeUntilNextTokenMs(),
+				),
+			);
+		}
 		try {
 			const markets = await method.call(this.deps, ...args);
 			return ok(markets);
@@ -216,5 +230,19 @@ export class MarketCatalog {
 			);
 		}
 		return ok(undefined);
+	}
+
+	private evictOldest(): void {
+		let oldestKey: string | null = null;
+		let oldestExpiresAtMs = Number.POSITIVE_INFINITY;
+		for (const [key, entry] of this.cache.entries()) {
+			if (entry.expiresAtMs < oldestExpiresAtMs) {
+				oldestExpiresAtMs = entry.expiresAtMs;
+				oldestKey = key;
+			}
+		}
+		if (oldestKey !== null) {
+			this.cache.delete(oldestKey);
+		}
 	}
 }
