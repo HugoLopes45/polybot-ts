@@ -3,6 +3,10 @@
  *
  * Uses the conservative preset with custom guards overlaid.
  * Demonstrates combining presets with additional configuration.
+ *
+ * NOTE: This is a setup example demonstrating preset/detector wiring.
+ * It requires a WebSocket feed and market context to actually run ticks.
+ *
  * Run: npx tsx examples/conservative-mm.ts
  */
 

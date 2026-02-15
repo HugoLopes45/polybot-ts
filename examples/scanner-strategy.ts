@@ -2,6 +2,10 @@
  * Scanner Strategy — scans multiple markets for edge, trades the best one.
  *
  * Demonstrates the market scanner and how to feed results into a detector.
+ *
+ * NOTE: This is a setup example demonstrating scanner/detector wiring.
+ * It requires a WebSocket feed and market context to actually run ticks.
+ *
  * Run: npx tsx examples/scanner-strategy.ts
  */
 

@@ -2,6 +2,11 @@
  * Simple Arbitrage — buys YES when price < oracle, sells when profitable.
  *
  * Uses PaperExecutor for backtesting (no real orders).
+ *
+ * NOTE: This is a setup example demonstrating detector/executor wiring.
+ * It requires a WebSocket feed and market context to actually run ticks.
+ * For a working demo, see TestRunner integration tests in src/strategy/.
+ *
  * Run: npx tsx examples/simple-arb.ts
  */
 

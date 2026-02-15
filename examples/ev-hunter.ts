@@ -3,6 +3,10 @@
  *
  * Compares oracle price to market price, accounting for fees.
  * Uses the evHunter preset which includes standard guards and exits.
+ *
+ * NOTE: This is a setup example demonstrating preset/detector wiring.
+ * It requires a WebSocket feed and market context to actually run ticks.
+ *
  * Run: npx tsx examples/ev-hunter.ts
  */
 
