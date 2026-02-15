@@ -38,6 +38,11 @@ export {
 	ConfigError,
 	SystemError,
 	classifyError,
+	isNetworkError,
+	isRateLimitError,
+	isAuthError,
+	isOrderError,
+	isInsufficientBalance,
 } from "./errors.js";
 
 export { Decimal } from "./decimal.js";

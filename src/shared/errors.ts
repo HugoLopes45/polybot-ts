@@ -19,22 +19,37 @@ export class TradingError extends Error {
 	readonly category: ErrorCategory;
 	readonly code: string;
 	readonly context: Record<string, unknown>;
+	readonly hint: string | undefined;
 
 	constructor(
 		message: string,
 		code: string,
 		category: ErrorCategory,
 		context: Record<string, unknown> = {},
+		hint?: string,
 	) {
 		super(message);
 		this.name = "TradingError";
 		this.category = category;
 		this.code = code;
 		this.context = context;
+		this.hint = hint;
 	}
 
 	get isRetryable(): boolean {
 		return this.category === ErrorCategory.Retryable;
+	}
+
+	toJSON(): Record<string, unknown> {
+		return {
+			name: this.name,
+			message: this.message,
+			code: this.code,
+			category: this.category,
+			...(this.hint !== undefined && { hint: this.hint }),
+			retryable: this.isRetryable,
+			context: this.context,
+		};
 	}
 }
 
@@ -63,6 +78,13 @@ export class RateLimitError extends TradingError {
 		super(message, "RATE_LIMIT_ERROR", ErrorCategory.Retryable, context);
 		this.name = "RateLimitError";
 		this.retryAfterMs = retryAfterMs;
+	}
+
+	override toJSON(): Record<string, unknown> {
+		return {
+			...super.toJSON(),
+			retryAfterMs: this.retryAfterMs,
+		};
 	}
 }
 
@@ -133,4 +155,31 @@ export function classifyError(error: unknown): TradingError {
 		return new SystemError(error.message);
 	}
 	return new SystemError(String(error));
+}
+
+// ── Type guards ──────────────────────────────────────────────────────
+
+/** Type guard for NetworkError. */
+export function isNetworkError(e: unknown): e is NetworkError {
+	return e instanceof NetworkError;
+}
+
+/** Type guard for RateLimitError. */
+export function isRateLimitError(e: unknown): e is RateLimitError {
+	return e instanceof RateLimitError;
+}
+
+/** Type guard for AuthError. */
+export function isAuthError(e: unknown): e is AuthError {
+	return e instanceof AuthError;
+}
+
+/** Type guard for OrderRejectedError. */
+export function isOrderError(e: unknown): e is OrderRejectedError {
+	return e instanceof OrderRejectedError;
+}
+
+/** Type guard for InsufficientBalanceError. */
+export function isInsufficientBalance(e: unknown): e is InsufficientBalanceError {
+	return e instanceof InsufficientBalanceError;
 }
