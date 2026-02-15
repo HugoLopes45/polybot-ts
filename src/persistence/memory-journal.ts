@@ -42,6 +42,9 @@ export class MemoryJournal implements Journal {
 		this.store.length = 0;
 	}
 
+	/** No-op for in-memory journal - writes are synchronous. */
+	async flush(): Promise<void> {}
+
 	get size(): number {
 		return this.store.length;
 	}

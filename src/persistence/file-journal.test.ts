@@ -242,11 +242,15 @@ describe("FileJournal", () => {
 		await expect(journal.record(makeError())).rejects.toThrow(/closed/i);
 	});
 
-	it("record() wraps filesystem errors with context", async () => {
+	it("record() tracks filesystem errors in writeErrors and re-throws (H12)", async () => {
 		const badPath = join(tmpDir, "nonexistent-dir", "journal.jsonl");
 		const journal = FileJournal.create({ filePath: badPath });
 
 		await expect(journal.record(makeGuardBlocked())).rejects.toThrow(/FileJournal write/);
+
+		const errors = journal.writeErrors();
+		expect(errors.length).toBe(1);
+		expect(errors[0]?.message).toMatch(/FileJournal write/);
 	});
 
 	it("handles all 8 JournalEntry variants correctly in serialization", async () => {
@@ -344,4 +348,132 @@ describe("FileJournal", () => {
 		expect(result.entries).toHaveLength(20);
 		expect(result.corruptLines).toHaveLength(0);
 	});
+
+	describe("writeErrors()", () => {
+		it("returns empty array initially", async () => {
+			const journal = createJournal();
+			expect(journal.writeErrors()).toEqual([]);
+		});
+
+		it("tracks errors from failed writes", async () => {
+			const badPath = join(tmpDir, "nonexistent-dir", "journal.jsonl");
+			const journal = FileJournal.create({ filePath: badPath });
+
+			await journal.record(makeGuardBlocked()).catch(() => {});
+
+			const errors = journal.writeErrors();
+			expect(errors.length).toBeGreaterThan(0);
+			expect(errors[0]).toBeInstanceOf(Error);
+		});
+
+		it("bounds errors to last 10 (H12)", async () => {
+			const badPath = join(tmpDir, "nonexistent-dir", "journal.jsonl");
+			const journal = FileJournal.create({ filePath: badPath });
+
+			for (let i = 0; i < 15; i++) {
+				await journal.record(makeGuardBlocked(`guard-${i}`, i)).catch(() => {});
+			}
+
+			const errors = journal.writeErrors();
+			expect(errors.length).toBe(10);
+		});
+	});
+
+	describe("file rotation", () => {
+		it("config accepts optional maxFileSizeBytes and maxFiles", async () => {
+			const journal = FileJournal.create({
+				filePath,
+				maxFileSizeBytes: 1024,
+				maxFiles: 5,
+			});
+
+			await journal.record(makeGuardBlocked());
+			const result = await journal.restore();
+			expect(result.entries).toHaveLength(1);
+		});
+
+		it("rotates file when maxFileSizeBytes exceeded", async () => {
+			const smallSize = 50;
+			const journal = FileJournal.create({
+				filePath,
+				maxFileSizeBytes: smallSize,
+				maxFiles: 3,
+			});
+
+			// Write entries until we exceed the limit
+			for (let i = 0; i < 10; i++) {
+				await journal.record(makeGuardBlocked(`guard-${i}`, i * 1000));
+			}
+
+			// Main file should exist and have some content
+			const mainContent = await readFile(filePath, "utf-8");
+			expect(mainContent.length).toBeGreaterThan(0);
+
+			// Rotated file should exist
+			const rotatedPath = `${filePath}.1`;
+			const rotatedContent = await readFile(rotatedPath, "utf-8");
+			expect(rotatedContent.length).toBeGreaterThan(0);
+		});
+
+		it("rotates multiple times up to maxFiles", async () => {
+			const verySmallSize = 30;
+			const journal = FileJournal.create({
+				filePath,
+				maxFileSizeBytes: verySmallSize,
+				maxFiles: 3,
+			});
+
+			// Write many entries to trigger multiple rotations
+			for (let i = 0; i < 20; i++) {
+				await journal.record(makeGuardBlocked(`guard-${i}`, i * 1000));
+			}
+
+			// Check that rotation files exist up to maxFiles
+			expect(await exists(`${filePath}.1`)).toBe(true);
+			expect(await exists(`${filePath}.2`)).toBe(true);
+			expect(await exists(`${filePath}.3`)).toBe(true);
+			// Beyond maxFiles should not exist
+			expect(await exists(`${filePath}.4`)).toBe(false);
+		});
+
+		it("rotation shifts existing rotated files (path.N → path.N+1)", async () => {
+			const smallSize = 50;
+			const journal = FileJournal.create({
+				filePath,
+				maxFileSizeBytes: smallSize,
+				maxFiles: 3,
+			});
+
+			// Write enough to trigger at least 2 rotations
+			for (let i = 0; i < 15; i++) {
+				await journal.record(makeGuardBlocked(`guard-${i}`, i * 1000));
+			}
+
+			// All rotation files should exist
+			expect(await exists(`${filePath}.1`)).toBe(true);
+			expect(await exists(`${filePath}.2`)).toBe(true);
+		});
+
+		it("works without rotation when maxFileSizeBytes not set", async () => {
+			const journal = FileJournal.create({ filePath });
+
+			for (let i = 0; i < 5; i++) {
+				await journal.record(makeGuardBlocked(`guard-${i}`, i * 1000));
+			}
+
+			const result = await journal.restore();
+			expect(result.entries).toHaveLength(5);
+			// No rotated files should exist
+			expect(await exists(`${filePath}.1`)).toBe(false);
+		});
+	});
 });
+
+async function exists(path: string): Promise<boolean> {
+	try {
+		await readFile(path, "utf-8");
+		return true;
+	} catch {
+		return false;
+	}
+}

@@ -13,6 +13,7 @@ import type { ExitReason, ExitReasonType, SdkOrderIntent } from "../signal/types
 /** Persistence interface for recording strategy decisions and events. */
 export interface Journal {
 	record(event: JournalEntry): Promise<void>;
+	flush(): Promise<void>;
 }
 
 /** Discriminated union of all recordable strategy events (signals, orders, positions, guards, errors). */
