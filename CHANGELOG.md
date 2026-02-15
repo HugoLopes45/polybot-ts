@@ -9,11 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Analytics module** with 25+ technical indicators:
+  - Price: SMA, EMA, RSI, Bollinger Bands
+  - Volatility: ATR, Donchian Channel, Keltner Channel, Chandelier Exit
+  - Trend: MACD, ADX, Aroon, DEMA, TRIX, Parabolic SAR
+  - Momentum: Stochastic, Williams %R, CCI, ROC, Awesome Oscillator, StochRSI
+  - Volume: OBV, VWMA, MFI, ADL, CMF, Force Index, NVI, VPT, PVO
+- **Orderbook analytics**: imbalance ratio, VWAP, spread (bps), slippage estimation, book depth
+- **KLineAggregator** for real-time candle building from price ticks
+- **PriceHistoryClient** for historical price data with configurable intervals
+- `createCandle()` factory function and shared indicator result types
+- `getCandlesChronological()` helper for time-ordered candle access
+- **Arbitrage detection**: `checkArbitrage()`, `calcArbProfit()`, `calcOptimalSize()` for cross-market arb scanning with profit/optimal size calculation
+- **RateLimiterManager** with named limiter groups and `polymarketPresets`
+- `RateLimiterStats` tracking (hits/misses/waits/avgWaitMs) on `TokenBucketRateLimiter`
+- **MarketCatalog discovery** with optional provider methods (`getTrending?()`, `getNew?()`) and `callDiscovery()` helper
+- `MarketInfo` status union type and `cacheWriteErrors` tracking
+- **Error enhancements**: `hint` field on `TradingError`, `toJSON()` serialization, immutable `cause` chain, type guard functions (`isNetworkError()`, `isRateLimitError()`, etc.)
+- `ConfigError` thrown from constructor for invalid SDK configuration
 - JSDoc coverage on all public API exports
 - CONTRIBUTING tutorials (guards, exits, strategies)
 - CI status badge in README
 
 ### Fixed
+
+- Off-by-one guards in MACD, TRIX, and StochRSI minimum data requirements
+- `Infinity` result from division by zero in `timeUntilNextTokenMs`
+- Immutable cause chain — `TradingError.cause` no longer allows mutation
+- Tighter `classifyError` string matching to prevent false positives
+- `ConfigError` thrown from constructor instead of silent misconfiguration
+- Orderbook analytics null-safety for degenerate book states (empty bids/asks)
+- WsManager subscription key collision via composite key `channel:assets.join(",")` pattern
+- CachingTokenResolver thundering herd via in-flight promise Map for request coalescing
+- Watchdog evaluation order: check `shouldBlockEntries()` BEFORE `touch()` to prevent timer reset
+- BuiltStrategy tick loop: all user-supplied code (detector, guards, exit pipeline) wrapped in try/catch
+- Stats winRate: uses tradeCount (including breakeven) as denominator
+- FeeModel: bps/pct division done in Decimal space, not JS float
+- PositionReconciler: tolerance in bps with orphan inclusion in halt decision
+- MultiMarketManager: Decimal parse errors captured in `_parseErrors` instead of silent `continue`
+- `marketTokenId()` arity enforcement (was silently accepting extra args)
+- Heartbeat splice bug in WsManager message handling
+- Decimal precision loss in specific edge cases
+
+### Changed
 
 - README: removed false "zero runtime dependencies" claim
 - README/ARCHITECTURE: updated roadmap to reflect completed phases

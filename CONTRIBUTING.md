@@ -297,6 +297,69 @@ const strategy = conservative()
 
 ---
 
+## How to Add a Technical Indicator
+
+Technical indicators analyze market data and produce signals. Indicators are pure functions that take candle/price data (as `Decimal[]` or `Candle[]`) and return computed values.
+
+**Canonical example:** `src/analytics/indicators.ts` (SMA, EMA, RSI)
+
+### Step 1: Write the test first
+
+Add tests to the appropriate test file (e.g., `src/analytics/trend-indicators.test.ts`):
+
+```typescript
+import { describe, expect, it } from "vitest";
+import { Decimal } from "../shared/decimal.js";
+import { calcMyIndicator } from "./trend-indicators.js";
+
+describe("calcMyIndicator", () => {
+  it("returns null when insufficient data", () => {
+    const closes = [Decimal.from("0.50")];
+    expect(calcMyIndicator(closes, 14)).toBeNull();
+  });
+
+  it("computes correctly for known input", () => {
+    const closes = /* array of Decimal values with known expected output */;
+    const result = calcMyIndicator(closes, 14);
+    expect(result).not.toBeNull();
+    expect(result!.value.toFixed(4)).toBe("0.1234");
+  });
+});
+```
+
+### Step 2: Implement the indicator
+
+Add to the appropriate file (e.g., `src/analytics/trend-indicators.ts`):
+
+```typescript
+import { Decimal } from "../shared/decimal.js";
+import { at } from "./helpers.js";
+
+export function calcMyIndicator(
+  closes: readonly Decimal[],
+  period: number,
+): { value: Decimal } | null {
+  if (closes.length < period) return null;
+  // Compute using Decimal arithmetic — never use raw number for the result
+  return { value: /* computed Decimal */ };
+}
+```
+
+### Step 3: Export from barrels
+
+1. Add to `src/analytics/index.ts`
+2. Add to `src/index.ts` (public API barrel)
+
+### Key rules
+
+- Return `null` when insufficient data (never throw)
+- Use `Decimal` for all intermediate and final computations
+- Use the `at()` helper from `helpers.ts` for bounded-loop indexed access
+- Group by category: price-only in `indicators.ts`, volatility in `volatility-indicators.ts`, etc.
+- Include minimum data requirements in the function signature or JSDoc
+
+---
+
 ## Architecture Quick Reference
 
 ### Module dependency direction
