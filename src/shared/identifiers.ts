@@ -59,3 +59,6 @@ export function idToString(
 ): string {
 	return id as string;
 }
+
+/** Alias for idToString — extracts the raw string from a branded identifier. */
+export const unwrap = idToString;

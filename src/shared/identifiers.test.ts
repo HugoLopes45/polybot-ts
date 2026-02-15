@@ -5,9 +5,37 @@ import {
 	exchangeOrderId,
 	idToString,
 	marketTokenId,
+	unwrap,
 } from "./identifiers.js";
 
 describe("branded identifiers", () => {
+	describe("unwrap utility", () => {
+		it("unwraps ConditionId to raw string", () => {
+			const id = conditionId("test-condition");
+			expect(unwrap(id)).toBe("test-condition");
+		});
+
+		it("unwraps MarketTokenId to raw string", () => {
+			const id = marketTokenId("token-123");
+			expect(unwrap(id)).toBe("token-123");
+		});
+
+		it("unwraps ClientOrderId to raw string", () => {
+			const id = clientOrderId("order-456");
+			expect(unwrap(id)).toBe("order-456");
+		});
+
+		it("unwraps ExchangeOrderId to raw string", () => {
+			const id = exchangeOrderId("exchange-789");
+			expect(unwrap(id)).toBe("exchange-789");
+		});
+
+		it("idToString and unwrap return same value", () => {
+			const id = conditionId("same-value");
+			expect(unwrap(id)).toBe(idToString(id));
+		});
+	});
+
 	describe("factory functions", () => {
 		it("creates valid identifiers from non-empty strings", () => {
 			const cid = conditionId("0xabc123");
