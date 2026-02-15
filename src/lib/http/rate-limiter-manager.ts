@@ -16,7 +16,16 @@ export class RateLimiterManager {
 		this.clock = clock;
 	}
 
-	/** Returns an existing limiter or creates one with the given config. */
+	/**
+	 * Returns an existing limiter or creates one with the given config.
+	 *
+	 * Note: First registration wins — subsequent calls with the same name return the
+	 * existing limiter, ignoring the new config.
+	 *
+	 * @param name - Unique name for the rate limiter
+	 * @param config - Configuration for the rate limiter (used only if creating)
+	 * @returns The rate limiter instance (existing or newly created)
+	 */
 	getOrCreate(name: string, config: Omit<RateLimiterConfig, "clock">): TokenBucketRateLimiter {
 		const existing = this.limiters.get(name);
 		if (existing) return existing;

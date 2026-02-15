@@ -1,3 +1,4 @@
+import { ConfigError } from "../../shared/errors.js";
 import type { Clock } from "../../shared/time.js";
 
 /**
@@ -37,6 +38,12 @@ export class TokenBucketRateLimiter {
 	private _totalWaitMs = 0;
 
 	constructor(config: RateLimiterConfig) {
+		if (config.capacity < 1) {
+			throw new ConfigError("capacity must be >= 1", { capacity: config.capacity });
+		}
+		if (config.refillRate < 0) {
+			throw new ConfigError("refillRate must be >= 0", { refillRate: config.refillRate });
+		}
 		this.capacity = config.capacity;
 		this.refillRate = config.refillRate;
 		this.clock = config.clock;
@@ -79,6 +86,22 @@ export class TokenBucketRateLimiter {
 	availableTokens(): number {
 		this.refill();
 		return Math.floor(this.tokens);
+	}
+
+	/**
+	 * Returns the time in milliseconds until the next token becomes available.
+	 * @returns 0 if tokens are available now, Infinity if refillRate is 0
+	 * and no tokens are available, otherwise milliseconds to wait.
+	 */
+	timeUntilNextTokenMs(): number {
+		this.refill();
+		if (this.tokens >= 1) {
+			return 0;
+		}
+		if (this.refillRate === 0) {
+			return Number.POSITIVE_INFINITY;
+		}
+		return Math.ceil(((1 - this.tokens) / this.refillRate) * 1000);
 	}
 
 	/**

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ConfigError } from "../../shared/errors.js";
 import { FakeClock } from "../../shared/time.js";
 import { TokenBucketRateLimiter } from "./rate-limiter.js";
 
@@ -68,18 +69,82 @@ describe("TokenBucketRateLimiter", () => {
 		expect(limiter.availableTokens()).toBe(4);
 	});
 
-	it("capacity=0 never allows acquisition (HARD-15)", () => {
-		const { limiter } = createLimiter(0);
-		expect(limiter.tryAcquire()).toBe(false);
-		expect(limiter.availableTokens()).toBe(0);
+	it("rejects capacity < 1", () => {
+		const clock = new FakeClock(1000);
+		expect(() => new TokenBucketRateLimiter({ capacity: 0, refillRate: 1, clock })).toThrow(
+			"capacity must be >= 1",
+		);
 	});
 
-	it("refillRate=0 never refills (HARD-15)", () => {
+	it("rejects negative capacity", () => {
+		const clock = new FakeClock(1000);
+		expect(() => new TokenBucketRateLimiter({ capacity: -1, refillRate: 1, clock })).toThrow(
+			"capacity must be >= 1",
+		);
+	});
+
+	it("rejects negative refillRate", () => {
+		const clock = new FakeClock(1000);
+		expect(() => new TokenBucketRateLimiter({ capacity: 5, refillRate: -1, clock })).toThrow(
+			"refillRate must be >= 0",
+		);
+	});
+
+	it("allows refillRate=0 (valid for non-refilling limiters)", () => {
 		const { limiter, clock } = createLimiter(2, 0);
 		limiter.tryAcquire();
 		limiter.tryAcquire();
 		clock.advance(10_000);
 		expect(limiter.availableTokens()).toBe(0);
+	});
+
+	describe("timeUntilNextTokenMs", () => {
+		it("returns 0 when tokens are available", () => {
+			const { limiter } = createLimiter(5, 1);
+			expect(limiter.timeUntilNextTokenMs()).toBe(0);
+		});
+
+		it("returns positive ms when tokens exhausted", () => {
+			const { limiter } = createLimiter(1, 1);
+			limiter.tryAcquire();
+			const ms = limiter.timeUntilNextTokenMs();
+			expect(ms).toBeGreaterThan(0);
+			expect(ms).toBeLessThanOrEqual(1000);
+		});
+
+		it("returns Infinity when refillRate is 0 and tokens exhausted", () => {
+			const { limiter } = createLimiter(1, 0);
+			limiter.tryAcquire();
+			expect(limiter.timeUntilNextTokenMs()).toBe(Number.POSITIVE_INFINITY);
+		});
+
+		it("returns 0 for refillRate=0 when tokens still available", () => {
+			const { limiter } = createLimiter(2, 0);
+			expect(limiter.timeUntilNextTokenMs()).toBe(0);
+		});
+
+		it("decreases after clock advances", () => {
+			const { limiter, clock } = createLimiter(1, 2);
+			limiter.tryAcquire();
+			const before = limiter.timeUntilNextTokenMs();
+			clock.advance(200);
+			const after = limiter.timeUntilNextTokenMs();
+			expect(after).toBeLessThan(before);
+		});
+	});
+
+	it("constructor throws ConfigError for invalid capacity", () => {
+		const clock = new FakeClock(1000);
+		expect(() => new TokenBucketRateLimiter({ capacity: 0, refillRate: 1, clock })).toThrow(
+			ConfigError,
+		);
+	});
+
+	it("constructor throws ConfigError for negative refillRate", () => {
+		const clock = new FakeClock(1000);
+		expect(() => new TokenBucketRateLimiter({ capacity: 5, refillRate: -1, clock })).toThrow(
+			ConfigError,
+		);
 	});
 
 	it("waitForToken resolves when token becomes available", async () => {
