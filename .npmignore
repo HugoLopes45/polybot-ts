@@ -1,0 +1,9 @@
+# Safety net — primary control is "files": ["dist"] in package.json.
+# This file is redundant but provides defense-in-depth if "files" is removed.
+.internal/
+docs/
+.github/
+typedoc.json
+scripts/
+*.test.ts
+.docs-api/

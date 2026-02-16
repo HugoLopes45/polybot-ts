@@ -220,8 +220,14 @@ Carthage/Checkouts/
 *.xcodeproj/xcuserdata/
 *.playground/
 
+# ── Internal planning (never committed) ──────────────
+.internal/
+
 # ── Build output ─────────────────────────────────────
 dist/
+docs/api/
+docs/.vitepress/cache/
+.docs-api/
 out/
 build/
 _build/
