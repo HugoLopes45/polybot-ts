@@ -194,6 +194,44 @@ export class LibDecimal {
 		return this.raw.lessThan(0);
 	}
 
+	// ── Extended math (via JS Math.*) ─────────────────────────────
+
+	/**
+	 * Square root. Uses Math.sqrt on the JS number representation.
+	 * Suitable for prediction market values bounded [0, 1].
+	 * @throws Error if value is negative
+	 */
+	sqrt(): LibDecimal {
+		const n = this.raw.toNumber();
+		if (n < 0) throw new Error("LibDecimal.sqrt: sqrt of negative");
+		return LibDecimal.from(Math.sqrt(n));
+	}
+
+	/**
+	 * Natural logarithm. Uses Math.log on the JS number representation.
+	 * @throws Error if value is zero or negative
+	 */
+	ln(): LibDecimal {
+		const n = this.raw.toNumber();
+		if (n <= 0) throw new Error("LibDecimal.ln: ln of non-positive");
+		return LibDecimal.from(Math.log(n));
+	}
+
+	/**
+	 * Exponential (e^x). Uses Math.exp on the JS number representation.
+	 */
+	exp(): LibDecimal {
+		return LibDecimal.from(Math.exp(this.raw.toNumber()));
+	}
+
+	/**
+	 * Power (x^n). Uses Math.pow on the JS number representation.
+	 * @param n - The exponent
+	 */
+	pow(n: number): LibDecimal {
+		return LibDecimal.from(this.raw.toNumber() ** n);
+	}
+
 	// ── Conversion ─────────────────────────────────────────────────
 
 	/**

@@ -67,6 +67,24 @@ export class Decimal {
 		return new Decimal(this.raw.abs());
 	}
 
+	// ── Extended math ──────────────────────────────────────────────
+
+	sqrt(): Decimal {
+		return new Decimal(this.raw.sqrt());
+	}
+
+	ln(): Decimal {
+		return new Decimal(this.raw.ln());
+	}
+
+	exp(): Decimal {
+		return new Decimal(this.raw.exp());
+	}
+
+	pow(n: number): Decimal {
+		return new Decimal(this.raw.pow(n));
+	}
+
 	// ── Comparison ─────────────────────────────────────────────────
 
 	eq(other: Decimal): boolean {

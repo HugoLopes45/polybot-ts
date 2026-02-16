@@ -145,6 +145,52 @@ describe("Decimal", () => {
 		});
 	});
 
+	describe("sqrt / ln / exp / pow", () => {
+		it("sqrt(4) = 2", () => {
+			expect(Decimal.from(4).sqrt().toString()).toBe("2");
+		});
+
+		it("sqrt(0) = 0", () => {
+			expect(Decimal.from(0).sqrt().toString()).toBe("0");
+		});
+
+		it("sqrt(0.25) ≈ 0.5", () => {
+			expect(Math.abs(Decimal.from("0.25").sqrt().toNumber() - 0.5)).toBeLessThan(1e-10);
+		});
+
+		it("sqrt throws on negative", () => {
+			expect(() => Decimal.from(-1).sqrt()).toThrow("sqrt of negative");
+		});
+
+		it("ln(1) = 0", () => {
+			expect(Decimal.from(1).ln().toString()).toBe("0");
+		});
+
+		it("ln(e) ≈ 1", () => {
+			expect(Math.abs(Decimal.from(Math.E).ln().toNumber() - 1)).toBeLessThan(1e-10);
+		});
+
+		it("ln throws on zero", () => {
+			expect(() => Decimal.from(0).ln()).toThrow("ln of non-positive");
+		});
+
+		it("exp(0) = 1", () => {
+			expect(Decimal.from(0).exp().toString()).toBe("1");
+		});
+
+		it("exp(1) ≈ e", () => {
+			expect(Math.abs(Decimal.from(1).exp().toNumber() - Math.E)).toBeLessThan(1e-10);
+		});
+
+		it("pow(2, 3) = 8", () => {
+			expect(Decimal.from(2).pow(3).toString()).toBe("8");
+		});
+
+		it("pow(x, 0) = 1", () => {
+			expect(Decimal.from(42).pow(0).toString()).toBe("1");
+		});
+	});
+
 	describe("financial precision (IEEE 754 edge cases)", () => {
 		it("0.1 + 0.2 === 0.3 (unlike native floats)", () => {
 			const result = Decimal.from("0.1").add(Decimal.from("0.2"));
