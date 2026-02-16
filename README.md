@@ -9,12 +9,13 @@
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript&logoColor=white" alt="TypeScript 5.7"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
   <a href="#"><img src="https://img.shields.io/badge/ESM%20%2B%20CJS-dual%20output-blueviolet" alt="ESM + CJS dual output"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Tests-1237%20passing-brightgreen" alt="1237 tests passing"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Tests-2071%20passing-brightgreen" alt="2071 tests passing"></a>
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> ·
   <a href="#features">Features</a> ·
+  <a href="https://hugolopes45.github.io/polybot-ts/">Documentation</a> ·
   <a href="#polymarket-trading-bot-examples">Examples</a> ·
   <a href="#analytics--technical-indicators">Analytics</a> ·
   <a href="#contributing">Contributing</a>
@@ -142,7 +143,19 @@ const oracleArb: SignalDetector<unknown, { price: Decimal; edge: number }> = {
 - **Library-abstracted** — all external deps wrapped in `lib/`, swap implementations without touching domain code
 - **ESM + CJS dual output** — works everywhere via tsup
 - **Clock injection** — deterministic tests, no `Date.now()` in domain code
-- **1,237 tests** across 75 test files — hardened through multiple adversarial review passes
+- **2,071 tests** across 122 test files — hardened through multiple adversarial review passes
+
+</td>
+</tr>
+<tr>
+<td>
+
+### Advanced Trading Features
+- **Pricing models** — Black-Scholes, Dutch book, WeightedOracle, impact models, spread calculators
+- **Backtesting framework** — `runBacktest()`, historical data generators, performance metrics, slippage models
+- **Position sizing** — Kelly criterion, fixed sizing, custom sizers with risk-adjusted calculations
+- **Microstructure analysis** — orderbook impact, queue position, fill probability estimation
+- **Observability** — structured logging via Pino, metrics hooks, performance tracing
 
 </td>
 </tr>
@@ -284,7 +297,7 @@ const slippage = estimateSlippage(asks, size);         // Expected slippage for 
 
 ```bash
 pnpm install          # Install dependencies
-pnpm vitest run       # Run all 1,237 tests
+pnpm vitest run       # Run all 2,071 tests
 pnpm test:watch       # Watch mode for TDD
 pnpm typecheck        # TypeScript strict type checking
 pnpm lint             # Biome linting
@@ -305,7 +318,7 @@ pnpm ci               # Run all CI checks
 - [x] **Phase 6.1** — Library wrappers (validation, typed events, guard combinators)
 - [x] **Phase 6.2** — JSDoc completion, documentation polish, CHANGELOG
 - [x] **Hardening** — Multiple adversarial review passes, 400+ tests added, bug fixes
-- [x] **Analytics** — 25+ technical indicators, orderbook analytics, rate limiting, market discovery
+- [x] **Phase 9** — Pricing models, backtesting, position sizing, microstructure, observability
 - [ ] **Phase 7** — npm publish, documentation site, CLI tooling
 
 ---
@@ -325,7 +338,7 @@ pnpm ci               # Run all CI checks
 | Rate limiting with presets | Yes | Manual | Manual |
 | Market discovery & scanning | Yes | Manual | Manual |
 | Library abstraction layer | Yes | No | No |
-| Test suite | 1,237 tests | N/A | N/A |
+| Test suite | 2,071 tests | N/A | N/A |
 
 ---
 

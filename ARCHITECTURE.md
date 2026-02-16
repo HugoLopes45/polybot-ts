@@ -18,6 +18,8 @@
 │  │market│ │ auth │ │ exec │ │ acct │ │  events  │  │
 │  ├──────┤ ├──────┤ ├──────┤ ├──────┤ ├──────────┤  │
 │  │  ws  │ │ ctf  │ │persist│ │contxt│ │analytics │  │
+│  ├──────┤ ├──────┤ ├──────┤ ├──────┤ ├──────────┤  │
+│  │price │ │ btest│ │ size │ │observ│ │  micro   │  │
 │  └──────┘ └──────┘ └──────┘ └──────┘ └──────────┘  │
 ├─────────────────────────────────────────────────────┤
 │                 Shared Kernel (shared/)               │
@@ -111,6 +113,9 @@ Error objects include:
 | `ctf/` | CTF operations (split/merge/redeem), CachingTokenResolver |
 | `persistence/` | MemoryJournal, FileJournal (JSONL), corrupt line detection |
 | `analytics/` | 25+ technical indicators, KLine aggregator, orderbook analytics, price history |
+| `pricing/` | Black-Scholes, Dutch book, WeightedOracle, impact models, spread calculators |
+| `backtest/` | Backtest engine, historical data generators, performance metrics, slippage models |
+| `sizing/` | KellySizer, FixedSizer, PositionSizer interface, Kelly criterion sizing |
 
 ### Cross-Cutting
 | Context | Responsibility |
@@ -161,7 +166,7 @@ All indicators operate on the SDK's `Decimal` type for precision. Candle data is
 - [x] Phase 6.1: Library Wrappers (validation, typed events, guard combinators)
 - [x] Phase 6.2: Documentation & Polish
 - [x] Hardening: Multiple adversarial review passes
-- [x] Analytics: Technical indicators, orderbook analytics, rate limiting, market discovery
+- [x] Phase 9: Pricing models, backtesting, position sizing, microstructure, observability
 - [ ] Phase 7: npm publish & CLI
 
-1,237 tests across 75 test files.
+2,071 tests across 122 test files.

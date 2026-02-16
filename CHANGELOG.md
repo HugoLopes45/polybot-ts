@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Phase 9 — Advanced Trading Features**:
+  - **Pricing models**: Black-Scholes, Dutch book, WeightedOracle, impact models, spread calculators
+  - **Backtesting framework**: `runBacktest()`, historical data generators, performance metrics, configurable slippage models
+  - **Position sizing**: `KellySizer`, `FixedSizer`, `PositionSizer` interface with Kelly criterion and risk-adjusted calculations
+  - **Microstructure analysis**: orderbook impact, queue position estimation, fill probability
+  - **Observability**: structured logging via Pino, metrics hooks, performance tracing
+
 - **Analytics module** with 25+ technical indicators:
   - Price: SMA, EMA, RSI, Bollinger Bands
   - Volatility: ATR, Donchian Channel, Keltner Channel, Chandelier Exit
