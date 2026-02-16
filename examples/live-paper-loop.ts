@@ -9,14 +9,14 @@
  */
 
 import {
-	type SignalDetector,
-	type DetectorContextLike,
-	type SdkOrderIntent,
-	StrategyBuilder,
-	PaperExecutor,
-	TestContextBuilder,
 	Decimal,
+	type DetectorContextLike,
 	MarketSide,
+	PaperExecutor,
+	type SdkOrderIntent,
+	type SignalDetector,
+	StrategyBuilder,
+	TestContextBuilder,
 	marketTokenId,
 } from "@polybot/sdk";
 
@@ -29,7 +29,7 @@ const detector: SignalDetector<unknown, SpreadSignal> = {
 
 	detectEntry(ctx: DetectorContextLike): SpreadSignal | null {
 		const spread = ctx.spread(MarketSide.Yes);
-		if (spread !== null && spread.gt(Decimal.from("0.03"))) {
+		if (spread?.gt(Decimal.from("0.03"))) {
 			return { spread };
 		}
 		return null;

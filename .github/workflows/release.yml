@@ -23,6 +23,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm ci
       - run: pnpm build
+      - name: Validate package
+        run: |
+          npx publint
+          npx attw --pack . --ignore-rules=no-resolution
+          pnpm knip
       - run: pnpm publish --provenance --no-git-checks --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,32 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint-format:
+      glob: "*.{ts,tsx,js,jsx,json}"
+      run: npx biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+    typecheck:
+      run: pnpm typecheck
+
+commit-msg:
+  commands:
+    conventional-commit:
+      run: |
+        MSG=$(head -1 {1})
+        if ! echo "$MSG" | grep -qE '^(feat|fix|refactor|docs|test|chore|perf|ci|build|style|revert)(\(.+\))?: .{1,}'; then
+          echo ""
+          echo "  Invalid commit message format."
+          echo "  Expected: <type>(optional scope): <description>"
+          echo "  Types: feat | fix | refactor | docs | test | chore | perf | ci | build | style | revert"
+          echo "  Got: $MSG"
+          echo ""
+          exit 1
+        fi
+
+pre-push:
+  parallel: true
+  commands:
+    test:
+      run: pnpm test
+    lint:
+      run: pnpm lint

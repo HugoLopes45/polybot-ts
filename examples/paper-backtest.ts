@@ -10,18 +10,18 @@
 
 import {
 	type BacktestDetector,
+	CommissionModel,
 	Decimal,
 	type EntryState,
-	type ReplayTick,
-	runBacktest,
-	meanReverting,
 	FixedBpsSlippage,
-	CommissionModel,
-	calcSharpe,
-	calcMaxDrawdown,
-	calcWinRate,
-	calcProfitFactor,
 	MarketSide,
+	type ReplayTick,
+	calcMaxDrawdown,
+	calcProfitFactor,
+	calcSharpe,
+	calcWinRate,
+	meanReverting,
+	runBacktest,
 } from "@polybot/sdk";
 
 const detector: BacktestDetector = {

@@ -7,12 +7,12 @@
  */
 
 import {
-	binaryCallPrice,
-	calcEdge,
-	calculateEscapeRoute,
 	Decimal,
 	SystemClock,
 	WeightedOracle,
+	binaryCallPrice,
+	calcEdge,
+	calculateEscapeRoute,
 } from "@polybot/sdk";
 
 console.log("Black-Scholes Pricing:");
@@ -48,7 +48,7 @@ const aggregated = oracle.aggregate();
 console.log(`Aggregated Price: ${aggregated?.price.toString() ?? "N/A (no active sources)"}`);
 
 console.log("\nDutch Book Escape:");
-const escape = calculateEscapeRoute(
+const escapeRoute = calculateEscapeRoute(
 	"yes",
 	Decimal.from("0.70"),
 	Decimal.from("100"),
@@ -57,6 +57,6 @@ const escape = calculateEscapeRoute(
 	Decimal.from("0.55"),
 	Decimal.from("0.60"),
 );
-console.log(`Verdict: ${escape.verdict}`);
-console.log(`Recovery: ${escape.recovery.toString()}`);
-console.log(`Net P&L: ${escape.netPnl.toString()}`);
+console.log(`Verdict: ${escapeRoute.verdict}`);
+console.log(`Recovery: ${escapeRoute.recovery.toString()}`);
+console.log(`Net P&L: ${escapeRoute.netPnl.toString()}`);

@@ -64,8 +64,9 @@ jobs:
             test -f "dist/${dir}index.js" || { echo "MISSING: dist/${dir}index.js"; exit 1; }
             test -f "dist/${dir}index.cjs" || { echo "MISSING: dist/${dir}index.cjs"; exit 1; }
             test -f "dist/${dir}index.d.ts" || { echo "MISSING: dist/${dir}index.d.ts"; exit 1; }
+            test -f "dist/${dir}index.d.cts" || { echo "MISSING: dist/${dir}index.d.cts"; exit 1; }
           done
-          echo "All 23 entry points verified (ESM + CJS + DTS)"
+          echo "All 23 entry points verified (ESM + CJS + DTS + DCTS)"
 
   smoke-test:
     name: Package Smoke Test
@@ -137,3 +138,39 @@ jobs:
           TS
           npx tsc --noEmit
           echo "TypeScript type resolution OK"
+
+  validate:
+    name: Package Validation
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: publint
+        run: npx publint
+      - name: attw
+        run: npx attw --pack . --ignore-rules=no-resolution
+      - name: knip
+        run: pnpm knip
+      - name: size-limit
+        run: pnpm size
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Audit production dependencies
+        run: pnpm audit --prod

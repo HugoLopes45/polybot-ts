@@ -1,0 +1,16 @@
+{
+	"$schema": "https://unpkg.com/knip@5/schema.json",
+	"entry": ["src/*/index.ts"],
+	"project": ["src/**/*.ts", "!src/**/*.test.ts"],
+	"ignore": [
+		"src/**/*.test.ts",
+		"src/**/*-test-helpers.ts",
+		"examples/**",
+		"docs/**",
+		"scripts/**",
+		"src/lib/clob/index.ts"
+	],
+	"ignoreDependencies": ["@fast-check/vitest"],
+	"ignoreExportsUsedInFile": true,
+	"exclude": ["duplicates", "enumMembers", "types"]
+}

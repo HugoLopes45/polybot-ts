@@ -8,119 +8,234 @@
 	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js",
-			"require": "./dist/index.cjs"
-		},
-		"./analytics": {
-			"types": "./dist/analytics/index.d.ts",
-			"import": "./dist/analytics/index.js",
-			"require": "./dist/analytics/index.cjs"
-		},
-		"./market": {
-			"types": "./dist/market/index.d.ts",
-			"import": "./dist/market/index.js",
-			"require": "./dist/market/index.cjs"
-		},
-		"./events": {
-			"types": "./dist/events/index.d.ts",
-			"import": "./dist/events/index.js",
-			"require": "./dist/events/index.cjs"
-		},
-		"./strategy": {
-			"types": "./dist/strategy/index.d.ts",
-			"import": "./dist/strategy/index.js",
-			"require": "./dist/strategy/index.cjs"
-		},
-		"./order": {
-			"types": "./dist/order/index.d.ts",
-			"import": "./dist/order/index.js",
-			"require": "./dist/order/index.cjs"
-		},
-		"./position": {
-			"types": "./dist/position/index.d.ts",
-			"import": "./dist/position/index.js",
-			"require": "./dist/position/index.cjs"
-		},
-		"./risk": {
-			"types": "./dist/risk/index.d.ts",
-			"import": "./dist/risk/index.js",
-			"require": "./dist/risk/index.cjs"
-		},
-		"./persistence": {
-			"types": "./dist/persistence/index.d.ts",
-			"import": "./dist/persistence/index.js",
-			"require": "./dist/persistence/index.cjs"
-		},
-		"./ctf": {
-			"types": "./dist/ctf/index.d.ts",
-			"import": "./dist/ctf/index.js",
-			"require": "./dist/ctf/index.cjs"
-		},
-		"./execution": {
-			"types": "./dist/execution/index.d.ts",
-			"import": "./dist/execution/index.js",
-			"require": "./dist/execution/index.cjs"
-		},
-		"./auth": {
-			"types": "./dist/auth/index.d.ts",
-			"import": "./dist/auth/index.js",
-			"require": "./dist/auth/index.cjs"
-		},
-		"./signal": {
-			"types": "./dist/signal/index.d.ts",
-			"import": "./dist/signal/index.js",
-			"require": "./dist/signal/index.cjs"
-		},
-		"./context": {
-			"types": "./dist/context/index.d.ts",
-			"import": "./dist/context/index.js",
-			"require": "./dist/context/index.cjs"
+			"import": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
 		},
 		"./accounting": {
-			"types": "./dist/accounting/index.d.ts",
-			"import": "./dist/accounting/index.js",
-			"require": "./dist/accounting/index.cjs"
+			"import": {
+				"types": "./dist/accounting/index.d.ts",
+				"default": "./dist/accounting/index.js"
+			},
+			"require": {
+				"types": "./dist/accounting/index.d.cts",
+				"default": "./dist/accounting/index.cjs"
+			}
 		},
-		"./lifecycle": {
-			"types": "./dist/lifecycle/index.d.ts",
-			"import": "./dist/lifecycle/index.js",
-			"require": "./dist/lifecycle/index.cjs"
+		"./analytics": {
+			"import": {
+				"types": "./dist/analytics/index.d.ts",
+				"default": "./dist/analytics/index.js"
+			},
+			"require": {
+				"types": "./dist/analytics/index.d.cts",
+				"default": "./dist/analytics/index.cjs"
+			}
 		},
-		"./websocket": {
-			"types": "./dist/websocket/index.d.ts",
-			"import": "./dist/websocket/index.js",
-			"require": "./dist/websocket/index.cjs"
-		},
-		"./shared": {
-			"types": "./dist/shared/index.d.ts",
-			"import": "./dist/shared/index.js",
-			"require": "./dist/shared/index.cjs"
+		"./auth": {
+			"import": {
+				"types": "./dist/auth/index.d.ts",
+				"default": "./dist/auth/index.js"
+			},
+			"require": {
+				"types": "./dist/auth/index.d.cts",
+				"default": "./dist/auth/index.cjs"
+			}
 		},
 		"./backtest": {
-			"types": "./dist/backtest/index.d.ts",
-			"import": "./dist/backtest/index.js",
-			"require": "./dist/backtest/index.cjs"
+			"import": {
+				"types": "./dist/backtest/index.d.ts",
+				"default": "./dist/backtest/index.js"
+			},
+			"require": {
+				"types": "./dist/backtest/index.d.cts",
+				"default": "./dist/backtest/index.cjs"
+			}
 		},
-		"./pricing": {
-			"types": "./dist/pricing/index.d.ts",
-			"import": "./dist/pricing/index.js",
-			"require": "./dist/pricing/index.cjs"
+		"./context": {
+			"import": {
+				"types": "./dist/context/index.d.ts",
+				"default": "./dist/context/index.js"
+			},
+			"require": {
+				"types": "./dist/context/index.d.cts",
+				"default": "./dist/context/index.cjs"
+			}
 		},
-		"./sizing": {
-			"types": "./dist/sizing/index.d.ts",
-			"import": "./dist/sizing/index.js",
-			"require": "./dist/sizing/index.cjs"
+		"./ctf": {
+			"import": {
+				"types": "./dist/ctf/index.d.ts",
+				"default": "./dist/ctf/index.js"
+			},
+			"require": {
+				"types": "./dist/ctf/index.d.cts",
+				"default": "./dist/ctf/index.cjs"
+			}
+		},
+		"./events": {
+			"import": {
+				"types": "./dist/events/index.d.ts",
+				"default": "./dist/events/index.js"
+			},
+			"require": {
+				"types": "./dist/events/index.d.cts",
+				"default": "./dist/events/index.cjs"
+			}
+		},
+		"./execution": {
+			"import": {
+				"types": "./dist/execution/index.d.ts",
+				"default": "./dist/execution/index.js"
+			},
+			"require": {
+				"types": "./dist/execution/index.d.cts",
+				"default": "./dist/execution/index.cjs"
+			}
+		},
+		"./lifecycle": {
+			"import": {
+				"types": "./dist/lifecycle/index.d.ts",
+				"default": "./dist/lifecycle/index.js"
+			},
+			"require": {
+				"types": "./dist/lifecycle/index.d.cts",
+				"default": "./dist/lifecycle/index.cjs"
+			}
+		},
+		"./market": {
+			"import": {
+				"types": "./dist/market/index.d.ts",
+				"default": "./dist/market/index.js"
+			},
+			"require": {
+				"types": "./dist/market/index.d.cts",
+				"default": "./dist/market/index.cjs"
+			}
 		},
 		"./observability": {
-			"types": "./dist/observability/index.d.ts",
-			"import": "./dist/observability/index.js",
-			"require": "./dist/observability/index.cjs"
+			"import": {
+				"types": "./dist/observability/index.d.ts",
+				"default": "./dist/observability/index.js"
+			},
+			"require": {
+				"types": "./dist/observability/index.d.cts",
+				"default": "./dist/observability/index.cjs"
+			}
+		},
+		"./order": {
+			"import": {
+				"types": "./dist/order/index.d.ts",
+				"default": "./dist/order/index.js"
+			},
+			"require": {
+				"types": "./dist/order/index.d.cts",
+				"default": "./dist/order/index.cjs"
+			}
+		},
+		"./persistence": {
+			"import": {
+				"types": "./dist/persistence/index.d.ts",
+				"default": "./dist/persistence/index.js"
+			},
+			"require": {
+				"types": "./dist/persistence/index.d.cts",
+				"default": "./dist/persistence/index.cjs"
+			}
+		},
+		"./position": {
+			"import": {
+				"types": "./dist/position/index.d.ts",
+				"default": "./dist/position/index.js"
+			},
+			"require": {
+				"types": "./dist/position/index.d.cts",
+				"default": "./dist/position/index.cjs"
+			}
+		},
+		"./pricing": {
+			"import": {
+				"types": "./dist/pricing/index.d.ts",
+				"default": "./dist/pricing/index.js"
+			},
+			"require": {
+				"types": "./dist/pricing/index.d.cts",
+				"default": "./dist/pricing/index.cjs"
+			}
+		},
+		"./risk": {
+			"import": {
+				"types": "./dist/risk/index.d.ts",
+				"default": "./dist/risk/index.js"
+			},
+			"require": {
+				"types": "./dist/risk/index.d.cts",
+				"default": "./dist/risk/index.cjs"
+			}
+		},
+		"./shared": {
+			"import": {
+				"types": "./dist/shared/index.d.ts",
+				"default": "./dist/shared/index.js"
+			},
+			"require": {
+				"types": "./dist/shared/index.d.cts",
+				"default": "./dist/shared/index.cjs"
+			}
+		},
+		"./signal": {
+			"import": {
+				"types": "./dist/signal/index.d.ts",
+				"default": "./dist/signal/index.js"
+			},
+			"require": {
+				"types": "./dist/signal/index.d.cts",
+				"default": "./dist/signal/index.cjs"
+			}
+		},
+		"./sizing": {
+			"import": {
+				"types": "./dist/sizing/index.d.ts",
+				"default": "./dist/sizing/index.js"
+			},
+			"require": {
+				"types": "./dist/sizing/index.d.cts",
+				"default": "./dist/sizing/index.cjs"
+			}
 		},
 		"./smart-money": {
-			"types": "./dist/smart-money/index.d.ts",
-			"import": "./dist/smart-money/index.js",
-			"require": "./dist/smart-money/index.cjs"
+			"import": {
+				"types": "./dist/smart-money/index.d.ts",
+				"default": "./dist/smart-money/index.js"
+			},
+			"require": {
+				"types": "./dist/smart-money/index.d.cts",
+				"default": "./dist/smart-money/index.cjs"
+			}
+		},
+		"./strategy": {
+			"import": {
+				"types": "./dist/strategy/index.d.ts",
+				"default": "./dist/strategy/index.js"
+			},
+			"require": {
+				"types": "./dist/strategy/index.d.cts",
+				"default": "./dist/strategy/index.cjs"
+			}
+		},
+		"./websocket": {
+			"import": {
+				"types": "./dist/websocket/index.d.ts",
+				"default": "./dist/websocket/index.js"
+			},
+			"require": {
+				"types": "./dist/websocket/index.d.cts",
+				"default": "./dist/websocket/index.cjs"
+			}
 		}
 	},
 	"files": ["dist"],
@@ -128,29 +243,41 @@
 		"build": "tsup",
 		"dev": "tsup --watch",
 		"typecheck": "tsc --noEmit",
-		"lint": "biome check src/",
-		"lint:fix": "biome check --write src/",
+		"lint": "biome check src/ examples/",
+		"lint:fix": "biome check --write src/ examples/",
+		"format": "biome format --write src/ examples/",
+		"format:check": "biome format src/ examples/",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"test:integration": "vitest run --project integration",
 		"ci": "pnpm lint && pnpm typecheck && pnpm test",
-		"prepublishOnly": "pnpm ci",
+		"validate": "pnpm build && publint && attw --pack . --ignore-rules=no-resolution",
+		"knip": "knip",
+		"size": "size-limit",
+		"prepublishOnly": "pnpm ci && pnpm validate",
 		"docs:typedoc": "typedoc",
 		"docs:copy-api": "shx rm -rf docs/api && shx mkdir -p docs/api && shx cp -r .docs-api/* docs/api/ && shx rm -rf .docs-api && shx rm -rf docs/api/_media",
 		"docs:gen-index": "node scripts/gen-api-index.mjs",
 		"docs:dev": "pnpm docs:typedoc && pnpm docs:copy-api && pnpm docs:gen-index && vitepress dev docs",
 		"docs:build": "pnpm docs:typedoc && pnpm docs:copy-api && pnpm docs:gen-index && vitepress build docs",
-		"docs:preview": "vitepress preview docs"
+		"docs:preview": "vitepress preview docs",
+		"prepare": "lefthook install"
 	},
 	"devDependencies": {
+		"@arethetypeswrong/cli": "^0.18.2",
 		"@biomejs/biome": "^1.9.4",
 		"@fast-check/vitest": "^0.2.4",
+		"@size-limit/preset-small-lib": "^12.0.0",
 		"@types/node": "^25.2.3",
 		"@types/ws": "^8.18.1",
 		"@vitest/coverage-v8": "^3.0.5",
 		"fast-check": "^4.5.3",
+		"knip": "^5.83.1",
+		"lefthook": "^2.1.1",
+		"publint": "^0.3.17",
 		"shx": "^0.4.0",
+		"size-limit": "^12.0.0",
 		"tsup": "^8.3.6",
 		"typedoc": "^0.28.17",
 		"typedoc-plugin-markdown": "^4.10.0",
@@ -165,20 +292,43 @@
 	"author": "HugoLopes45",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/HugoLopes45/polybot-ts.git"
+		"url": "git+https://github.com/HugoLopes45/polybot-ts.git"
 	},
 	"homepage": "https://hugolopes45.github.io/polybot-ts/",
 	"bugs": {
 		"url": "https://github.com/HugoLopes45/polybot-ts/issues"
 	},
-	"keywords": ["polymarket", "prediction-market", "trading", "algorithmic-trading", "quant", "sdk", "typescript", "trading-bot", "polybot"],
+	"keywords": [
+		"polymarket",
+		"prediction-market",
+		"trading",
+		"algorithmic-trading",
+		"quant",
+		"sdk",
+		"typescript",
+		"trading-bot",
+		"polybot"
+	],
 	"publishConfig": {
 		"access": "public"
 	},
+	"size-limit": [
+		{
+			"path": "dist/index.js",
+			"limit": "50 kB"
+		}
+	],
 	"sideEffects": false,
 	"packageManager": "pnpm@9.15.4",
+	"peerDependencies": {
+		"@polymarket/clob-client": ">=5.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@polymarket/clob-client": {
+			"optional": true
+		}
+	},
 	"dependencies": {
-		"@polymarket/clob-client": "^5.2.1",
 		"decimal.js-light": "^2.5.1",
 		"eventemitter3": "^5.0.4",
 		"pino": "^9.14.0",

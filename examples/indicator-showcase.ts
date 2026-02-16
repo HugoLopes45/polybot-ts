@@ -8,13 +8,13 @@
  */
 
 import {
-	Decimal,
-	calcSMA,
-	calcEMA,
-	calcRSI,
-	calcMACD,
-	calcBollingerBands,
 	type Candle,
+	Decimal,
+	calcBollingerBands,
+	calcEMA,
+	calcMACD,
+	calcRSI,
+	calcSMA,
 	createCandle,
 	unwrap,
 } from "@polybot/sdk";
@@ -40,7 +40,7 @@ function generateCandles(closes: readonly Decimal[]): Candle[] {
 		const close = closes[i];
 		if (close === undefined) continue;
 
-		const open = i > 0 ? closes[i - 1] ?? close : close;
+		const open = i > 0 ? (closes[i - 1] ?? close) : close;
 		const volatility = Decimal.from((Math.random() * 0.02).toString());
 		const high = Decimal.max(open, close).add(volatility);
 		const low = Decimal.min(open, close).sub(volatility);
@@ -86,7 +86,7 @@ if (macd !== null) {
 	console.log(`  MACD Signal:       ${macd.signal.toString()}`);
 	console.log(`  MACD Histogram:    ${macd.histogram.toString()}`);
 } else {
-	console.log(`  MACD:              N/A`);
+	console.log("  MACD:              N/A");
 }
 
 if (bollinger !== null) {
@@ -94,5 +94,5 @@ if (bollinger !== null) {
 	console.log(`  Bollinger Middle:  ${bollinger.middle.toString()}`);
 	console.log(`  Bollinger Lower:   ${bollinger.lower.toString()}`);
 } else {
-	console.log(`  Bollinger Bands:   N/A`);
+	console.log("  Bollinger Bands:   N/A");
 }
