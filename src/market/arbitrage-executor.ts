@@ -34,6 +34,12 @@ export class ArbitrageExecutor {
 		this.config = config;
 	}
 
+	/**
+	 * Creates an ArbitrageExecutor with validated configuration.
+	 * @param executor - Order executor for submitting legs
+	 * @param config - Fee rate, safety factor, profit threshold, exposure limit, and available balance
+	 * @returns Result with the executor, or TradingError if config is invalid
+	 */
 	static create(
 		executor: Executor,
 		config: ArbitrageExecutorConfig,
@@ -85,6 +91,16 @@ export class ArbitrageExecutor {
 		return ok(new ArbitrageExecutor(executor, config));
 	}
 
+	/**
+	 * Executes a multi-leg arbitrage opportunity with automatic rollback on partial failure.
+	 * @param opportunity - The arbitrage opportunity with legs and expected profit
+	 * @param conditionIdValue - The market condition ID for order creation
+	 * @returns Execution result with size, orders, and results, or TradingError on failure
+	 * @example
+	 * ```ts
+	 * const result = await arbExecutor.execute(opportunity, conditionId("0xAbc..."));
+	 * ```
+	 */
 	async execute(
 		opportunity: ArbitrageOpportunity,
 		conditionIdValue: ConditionId,

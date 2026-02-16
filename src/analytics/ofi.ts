@@ -33,6 +33,7 @@ export class OfiTracker {
 		this.cumulativeOfi = Decimal.zero();
 	}
 
+	/** Creates a new OFI tracker with zero cumulative state. */
 	static create(): OfiTracker {
 		return new OfiTracker();
 	}
@@ -40,6 +41,8 @@ export class OfiTracker {
 	/**
 	 * Feed a new orderbook snapshot.
 	 * Returns signed OFI delta, or null on first call.
+	 * @param snapshot - Best bid and ask levels from the current orderbook
+	 * @returns Signed OFI delta (positive = buying pressure), or null on first call
 	 */
 	update(snapshot: OfiSnapshot): Decimal | null {
 		const current = this.normalize(snapshot);

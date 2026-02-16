@@ -30,10 +30,21 @@ export class CorrelationEngine {
 		this.threshold = config.regimeShiftThreshold?.toNumber() ?? 0.3;
 	}
 
+	/**
+	 * Creates a correlation engine with the specified window size and regime shift threshold.
+	 * @param config - Window size and optional regime shift threshold (default 0.3)
+	 * @returns New CorrelationEngine instance
+	 */
 	static create(config: CorrelationConfig): CorrelationEngine {
 		return new CorrelationEngine(config);
 	}
 
+	/**
+	 * Feeds a paired observation and computes rolling Pearson correlation.
+	 * @param x - First series value (e.g., CEX price)
+	 * @param y - Second series value (e.g., market probability)
+	 * @returns Correlation result with regime shift detection, or null if < 2 samples
+	 */
 	update(x: Decimal, y: Decimal): CorrelationResult | null {
 		this.xBuffer.push(x.toNumber());
 		this.yBuffer.push(y.toNumber());
@@ -60,6 +71,7 @@ export class CorrelationEngine {
 		return result;
 	}
 
+	/** Clears all buffered observations and resets correlation state. */
 	reset(): void {
 		this.xBuffer.length = 0;
 		this.yBuffer.length = 0;

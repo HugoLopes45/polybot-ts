@@ -44,6 +44,12 @@ export class VpinTracker {
 		this.currentTotalVolume = Decimal.zero();
 	}
 
+	/**
+	 * Creates a VPIN tracker with validated configuration.
+	 * @param config - Bucket size (volume per bucket) and number of rolling buckets
+	 * @returns New VpinTracker instance
+	 * @throws Error if bucketSize is not positive or numBuckets < 1
+	 */
 	static create(config: VpinConfig): VpinTracker {
 		if (config.bucketSize.isZero() || config.bucketSize.isNegative()) {
 			throw new Error("VpinTracker: bucketSize must be positive");
@@ -54,6 +60,11 @@ export class VpinTracker {
 		return new VpinTracker(config);
 	}
 
+	/**
+	 * Feeds a trade update into the VPIN tracker.
+	 * Classifies the trade as buy/sell using the tick rule and fills volume buckets.
+	 * @param trade - Trade with price, size, and timestamp
+	 */
 	update(trade: TradeUpdate): void {
 		const direction = this.classifyTrade(trade.price);
 		this.lastPrice = trade.price;
@@ -79,6 +90,10 @@ export class VpinTracker {
 		}
 	}
 
+	/**
+	 * Returns the current VPIN value, or null if insufficient buckets are filled.
+	 * @returns VPIN in [0, 1] where 0 = balanced flow, 1 = fully one-sided. Null if < numBuckets filled.
+	 */
 	value(): Decimal | null {
 		if (this.buckets.length < this.config.numBuckets) {
 			return null;

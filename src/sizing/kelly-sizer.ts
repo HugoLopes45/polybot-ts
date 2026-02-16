@@ -21,18 +21,26 @@ export class KellySizer implements PositionSizer {
 		this.method = method;
 	}
 
+	/** Creates a full Kelly sizer (f* = edge / odds). */
 	static full(): KellySizer {
 		return new KellySizer(Decimal.one(), "Kelly", "kelly");
 	}
 
+	/** Creates a half-Kelly sizer (50% of optimal fraction). Recommended for most strategies. */
 	static half(): KellySizer {
 		return new KellySizer(Decimal.from(0.5), "HalfKelly", "half_kelly");
 	}
 
+	/** Creates a quarter-Kelly sizer (25% of optimal fraction). Most conservative preset. */
 	static quarter(): KellySizer {
 		return new KellySizer(Decimal.from(0.25), "QuarterKelly", "quarter_kelly");
 	}
 
+	/**
+	 * Creates a Kelly sizer with a custom fraction.
+	 * @param fraction - Kelly fraction in (0, 1]. E.g., 0.3 = 30% Kelly
+	 * @returns Result with the sizer, or Error if fraction is out of range
+	 */
 	static create(fraction: number): Result<KellySizer, Error> {
 		if (fraction <= 0) {
 			return err(new Error("KellySizer.create: fraction must be > 0"));
@@ -44,6 +52,11 @@ export class KellySizer implements PositionSizer {
 		return ok(new KellySizer(f, `Kelly(${fraction})`, "custom_kelly"));
 	}
 
+	/**
+	 * Calculates position size using the Kelly criterion.
+	 * @param input - Balance, market price, edge, and optional max position percentage
+	 * @returns Size in tokens, fraction of bankroll, and sizing method used
+	 */
 	size(input: SizingInput): SizingResult {
 		const maxPct = input.maxPositionPct ?? Decimal.from(0.25);
 

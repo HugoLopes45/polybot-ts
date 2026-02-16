@@ -25,6 +25,19 @@ const DEFAULT_CONFIG: ImpactConfig = {
 	gamma: Decimal.from("0.1"),
 };
 
+/**
+ * Estimates market impact using the Almgren-Chriss model.
+ * @param input - Order parameters: size, ADV, volatility, price
+ * @param config - Model coefficients: eta (temporary), gamma (permanent). Defaults to 0.1/0.1
+ * @returns Temporary impact, permanent impact, total impact percentage, and effective price
+ * @example
+ * ```ts
+ * const impact = estimateImpact({
+ *   orderSize: Decimal.from("500"), adv: Decimal.from("10000"),
+ *   volatility: Decimal.from("0.02"), price: Decimal.from("0.50"),
+ * });
+ * ```
+ */
 export function estimateImpact(input: ImpactInput, config?: ImpactConfig): ImpactEstimate {
 	const cfg = config ?? DEFAULT_CONFIG;
 
@@ -57,6 +70,18 @@ export function estimateImpact(input: ImpactInput, config?: ImpactConfig): Impac
 	};
 }
 
+/**
+ * Finds the maximum order size that stays within a given slippage budget.
+ * @param maxSlippagePct - Maximum acceptable slippage as a decimal (e.g., 0.01 = 1%)
+ * @param adv - Average daily volume
+ * @param volatility - Price volatility
+ * @param config - Optional model coefficients
+ * @returns Maximum order size that respects the slippage constraint
+ * @example
+ * ```ts
+ * const maxSize = optimalSize(Decimal.from("0.01"), Decimal.from("10000"), Decimal.from("0.02"));
+ * ```
+ */
 export function optimalSize(
 	maxSlippagePct: Decimal,
 	adv: Decimal,

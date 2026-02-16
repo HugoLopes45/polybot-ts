@@ -19,6 +19,19 @@ export interface SpreadResult {
 	readonly halfSpreadBps: Decimal;
 }
 
+/**
+ * Calculates dynamic bid/ask spread offsets based on volatility, time to expiry, and inventory skew.
+ * @param input - Market conditions: volatility, time remaining, optional inventory skew
+ * @param config - Spread parameters: base spread, volatility multiplier, min/max bounds
+ * @returns Bid and ask offsets in basis points, plus the base half-spread
+ * @example
+ * ```ts
+ * const spread = calcDynamicSpread(
+ *   { volatility: Decimal.from("0.03"), timeRemainingMs: 120_000 },
+ *   { baseSpreadBps: Decimal.from("10"), volMultiplier: Decimal.from("2"), minSpreadBps: Decimal.from("5"), maxSpreadBps: Decimal.from("100") },
+ * );
+ * ```
+ */
 export function calcDynamicSpread(input: SpreadInput, config: SpreadConfig): SpreadResult {
 	const volFactor = Decimal.one().add(config.volMultiplier.mul(input.volatility));
 	let halfSpread = config.baseSpreadBps.mul(volFactor);

@@ -30,6 +30,11 @@ export class Rebalancer {
 		this.config = config;
 	}
 
+	/**
+	 * Creates a Rebalancer with validated configuration.
+	 * @param config - Target USDC ratio, tolerance band, and minimum rebalance threshold
+	 * @returns Result with the rebalancer, or TradingError if config is invalid
+	 */
 	static create(config: RebalancerConfig): Result<Rebalancer, TradingError> {
 		if (config.targetUsdcRatio.isNegative() || config.targetUsdcRatio.gt(Decimal.one())) {
 			return err(
@@ -67,6 +72,16 @@ export class Rebalancer {
 		return ok(new Rebalancer(config));
 	}
 
+	/**
+	 * Calculates rebalance actions to move portfolio toward target ratios.
+	 * @param balances - Current token balances with USDC valuations
+	 * @param totalUsdc - Current USDC balance (not invested in tokens)
+	 * @returns Array of buy/sell actions needed, filtered by tolerance and minimum size
+	 * @example
+	 * ```ts
+	 * const actions = unwrap(rebalancer.calculateRebalance(balances, Decimal.from("50")));
+	 * ```
+	 */
 	calculateRebalance(
 		balances: readonly TokenBalance[],
 		totalUsdc: Decimal,
@@ -108,6 +123,12 @@ export class Rebalancer {
 		return ok(actions);
 	}
 
+	/**
+	 * Returns the current USDC ratio of the portfolio.
+	 * @param balances - Current token balances with USDC valuations
+	 * @param totalUsdc - Current USDC balance
+	 * @returns USDC as a fraction of total portfolio value (0 to 1)
+	 */
 	getPortfolioRatio(balances: readonly TokenBalance[], totalUsdc: Decimal): Decimal {
 		const totalValue = totalPortfolioValue(balances, totalUsdc);
 		if (totalValue.isZero()) {
