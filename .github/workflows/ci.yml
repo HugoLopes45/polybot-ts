@@ -57,4 +57,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Verify dist
-        run: test -d dist && test -f dist/index.js && test -f dist/index.cjs
+        run: |
+          test -f dist/index.js && test -f dist/index.cjs
+          test -f dist/shared/index.js && test -f dist/shared/index.cjs
+          test -f dist/analytics/index.js && test -f dist/analytics/index.cjs
+          test -f dist/strategy/index.d.ts && test -f dist/strategy/index.d.cts

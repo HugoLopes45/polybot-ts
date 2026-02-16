@@ -96,6 +96,31 @@
 			"types": "./dist/shared/index.d.ts",
 			"import": "./dist/shared/index.js",
 			"require": "./dist/shared/index.cjs"
+		},
+		"./backtest": {
+			"types": "./dist/backtest/index.d.ts",
+			"import": "./dist/backtest/index.js",
+			"require": "./dist/backtest/index.cjs"
+		},
+		"./pricing": {
+			"types": "./dist/pricing/index.d.ts",
+			"import": "./dist/pricing/index.js",
+			"require": "./dist/pricing/index.cjs"
+		},
+		"./sizing": {
+			"types": "./dist/sizing/index.d.ts",
+			"import": "./dist/sizing/index.js",
+			"require": "./dist/sizing/index.cjs"
+		},
+		"./observability": {
+			"types": "./dist/observability/index.d.ts",
+			"import": "./dist/observability/index.js",
+			"require": "./dist/observability/index.cjs"
+		},
+		"./smart-money": {
+			"types": "./dist/smart-money/index.d.ts",
+			"import": "./dist/smart-money/index.js",
+			"require": "./dist/smart-money/index.cjs"
 		}
 	},
 	"files": ["dist"],
