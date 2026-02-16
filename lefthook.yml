@@ -13,7 +13,8 @@ commit-msg:
     conventional-commit:
       run: |
         MSG=$(head -1 {1})
-        if ! echo "$MSG" | grep -qE '^(feat|fix|refactor|docs|test|chore|perf|ci|build|style|revert)(\(.+\))?: .{1,}'; then
+        if echo "$MSG" | grep -qE '^(Merge |Revert ")'; then exit 0; fi
+        if ! echo "$MSG" | grep -qE '^(feat|fix|refactor|docs|test|chore|perf|ci|build|style|revert)(\(.+\))?!?: .{1,}'; then
           echo ""
           echo "  Invalid commit message format."
           echo "  Expected: <type>(optional scope): <description>"

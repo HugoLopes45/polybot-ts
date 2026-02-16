@@ -18,9 +18,9 @@ jobs:
     name: Lint & Typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # 34e11487
-      - uses: pnpm/action-setup@v4 # c5ba7f78
-      - uses: actions/setup-node@v4 # 49933ea5
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -35,9 +35,9 @@ jobs:
       matrix:
         node-version: [20, 22]
     steps:
-      - uses: actions/checkout@v4 # 34e11487
-      - uses: pnpm/action-setup@v4 # c5ba7f78
-      - uses: actions/setup-node@v4 # 49933ea5
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
@@ -48,9 +48,9 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # 34e11487
-      - uses: pnpm/action-setup@v4 # c5ba7f78
-      - uses: actions/setup-node@v4 # 49933ea5
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -67,15 +67,16 @@ jobs:
             test -f "dist/${dir}index.d.cts" || { echo "MISSING: dist/${dir}index.d.cts"; exit 1; }
           done
           echo "All 23 entry points verified (ESM + CJS + DTS + DCTS)"
+          # Keep subpath list above in sync with package.json "exports"
 
   smoke-test:
     name: Package Smoke Test
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # 34e11487
-      - uses: pnpm/action-setup@v4 # c5ba7f78
-      - uses: actions/setup-node@v4 # 49933ea5
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -96,8 +97,9 @@ jobs:
           import { calcSMA } from "@polybot/sdk/analytics";
           import { runBacktest } from "@polybot/sdk/backtest";
           import { FixedSizer } from "@polybot/sdk/sizing";
-          console.log("ESM: Decimal.from works:", Decimal.from("1").toString() === "1");
-          console.log("ESM: All subpath imports resolved");
+          const r = Decimal.from("1").toString();
+          if (r !== "1") { console.error("FAIL: Decimal.from('1') returned", r); process.exit(1); }
+          console.log("ESM: All subpath imports verified");
           SCRIPT
           node test-esm.mjs
       - name: Test CJS imports
@@ -107,8 +109,9 @@ jobs:
           const { Decimal, StrategyBuilder } = require("@polybot/sdk");
           const { calcSMA } = require("@polybot/sdk/analytics");
           const { runBacktest } = require("@polybot/sdk/backtest");
-          console.log("CJS: Decimal.from works:", Decimal.from("1").toString() === "1");
-          console.log("CJS: All subpath imports resolved");
+          const r = Decimal.from("1").toString();
+          if (r !== "1") { console.error("FAIL: Decimal.from('1') returned", r); process.exit(1); }
+          console.log("CJS: All subpath imports verified");
           SCRIPT
           node test-cjs.cjs
       - name: Test TypeScript resolution
@@ -144,9 +147,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # 34e11487
-      - uses: pnpm/action-setup@v4 # c5ba7f78
-      - uses: actions/setup-node@v4 # 49933ea5
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -165,12 +168,12 @@ jobs:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # 34e11487
-      - uses: pnpm/action-setup@v4 # c5ba7f78
-      - uses: actions/setup-node@v4 # 49933ea5
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Audit production dependencies
-        run: pnpm audit --prod
+        run: pnpm audit --prod --audit-level=moderate

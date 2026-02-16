@@ -43,8 +43,8 @@
 			"automerge": false
 		},
 		{
-			"description": "Financial-critical deps: never auto-merge, always manual review",
-			"matchPackageNames": ["decimal.js-light", "viem", "zod"],
+			"description": "Financial-critical deps: never auto-merge even patches — always manual review",
+			"matchPackageNames": ["decimal.js-light", "viem", "zod", "@polymarket/clob-client"],
 			"automerge": false
 		},
 		{
@@ -58,8 +58,9 @@
 			"groupName": "typedoc"
 		},
 		{
-			"description": "GitHub Actions: pin to digest, auto-merge minor updates",
+			"description": "GitHub Actions: pin to digest, auto-merge patch and minor updates",
 			"matchManagers": ["github-actions"],
+			"matchUpdateTypes": ["patch", "minor", "digest"],
 			"automerge": true,
 			"automergeType": "pr",
 			"automergeStrategy": "squash"
