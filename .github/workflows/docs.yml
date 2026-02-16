@@ -29,15 +29,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # 34e11487
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4 # c5ba7f78
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v4 # 49933ea5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: "pnpm"
 
       - name: Install dependencies
@@ -47,7 +47,7 @@ jobs:
         run: pnpm docs:build
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v3 # 56afc609
         with:
           path: docs/.vitepress/dist
 
@@ -61,4 +61,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v4 # d6db9016

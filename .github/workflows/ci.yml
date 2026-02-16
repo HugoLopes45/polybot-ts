@@ -18,11 +18,11 @@ jobs:
     name: Lint & Typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4 # 34e11487
+      - uses: pnpm/action-setup@v4 # c5ba7f78
+      - uses: actions/setup-node@v4 # 49933ea5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -35,9 +35,9 @@ jobs:
       matrix:
         node-version: [20, 22]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4 # 34e11487
+      - uses: pnpm/action-setup@v4 # c5ba7f78
+      - uses: actions/setup-node@v4 # 49933ea5
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
@@ -48,11 +48,11 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4 # 34e11487
+      - uses: pnpm/action-setup@v4 # c5ba7f78
+      - uses: actions/setup-node@v4 # 49933ea5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -73,11 +73,11 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4 # 34e11487
+      - uses: pnpm/action-setup@v4 # c5ba7f78
+      - uses: actions/setup-node@v4 # 49933ea5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -144,11 +144,11 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4 # 34e11487
+      - uses: pnpm/action-setup@v4 # c5ba7f78
+      - uses: actions/setup-node@v4 # 49933ea5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -165,11 +165,11 @@ jobs:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4 # 34e11487
+      - uses: pnpm/action-setup@v4 # c5ba7f78
+      - uses: actions/setup-node@v4 # 49933ea5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Audit production dependencies

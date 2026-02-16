@@ -1,0 +1,73 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": [
+		"config:recommended",
+		"helpers:pinGitHubActionDigests",
+		":semanticCommits",
+		":maintainLockFilesWeekly"
+	],
+	"labels": ["dependencies"],
+	"rangeStrategy": "auto",
+	"timezone": "Europe/Paris",
+	"schedule": ["before 8am on Monday"],
+	"prHourlyLimit": 3,
+	"prConcurrentLimit": 5,
+	"packageRules": [
+		{
+			"description": "Group all devDep patch/minor updates into one weekly PR",
+			"matchDepTypes": ["devDependencies"],
+			"matchUpdateTypes": ["patch", "minor"],
+			"groupName": "devDependencies (non-major)",
+			"automerge": true,
+			"automergeType": "pr",
+			"automergeStrategy": "squash"
+		},
+		{
+			"description": "DevDep major bumps get individual PRs — require manual review",
+			"matchDepTypes": ["devDependencies"],
+			"matchUpdateTypes": ["major"],
+			"automerge": false
+		},
+		{
+			"description": "Runtime deps: auto-merge patches only — minor/major need review",
+			"matchDepTypes": ["dependencies"],
+			"matchUpdateTypes": ["patch"],
+			"automerge": true,
+			"automergeType": "pr",
+			"automergeStrategy": "squash"
+		},
+		{
+			"description": "Runtime deps: minor and major always need manual review",
+			"matchDepTypes": ["dependencies"],
+			"matchUpdateTypes": ["minor", "major"],
+			"automerge": false
+		},
+		{
+			"description": "Financial-critical deps: never auto-merge, always manual review",
+			"matchPackageNames": ["decimal.js-light", "viem", "zod"],
+			"automerge": false
+		},
+		{
+			"description": "Keep vitest and coverage-v8 in sync",
+			"matchPackageNames": ["vitest", "@vitest/coverage-v8"],
+			"groupName": "vitest"
+		},
+		{
+			"description": "Keep typedoc ecosystem in sync",
+			"matchPackageNames": ["typedoc", "typedoc-plugin-markdown"],
+			"groupName": "typedoc"
+		},
+		{
+			"description": "GitHub Actions: pin to digest, auto-merge minor updates",
+			"matchManagers": ["github-actions"],
+			"automerge": true,
+			"automergeType": "pr",
+			"automergeStrategy": "squash"
+		}
+	],
+	"vulnerabilityAlerts": {
+		"labels": ["security"],
+		"schedule": ["at any time"],
+		"automerge": false
+	}
+}
