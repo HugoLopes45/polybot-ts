@@ -4,3 +4,5 @@ export { PaperExecutor } from "./paper-executor.js";
 export type { PaperExecutorConfig, FillRecord } from "./paper-executor.js";
 export { withRetry } from "./retry.js";
 export { ClobExecutor } from "./clob-executor.js";
+export { QueueModel } from "./queue-model.js";
+export type { QueueConfig, QueueEntry } from "./queue-model.js";

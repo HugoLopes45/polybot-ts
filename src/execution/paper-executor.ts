@@ -37,6 +37,8 @@ export interface PaperExecutorConfig {
 	readonly fillDelayMs: number;
 	readonly clock: Clock;
 	readonly maxFillHistory: number;
+	/** Maximum age in ms before an order is auto-cancelled. 0 = disabled. Default: 0 */
+	readonly maxOrderAgeMs: number;
 }
 
 /** Record of a simulated fill, capturing the intent, result, and timestamp. */
@@ -46,11 +48,16 @@ export interface FillRecord {
 	readonly timestampMs: number;
 }
 
+interface ActiveOrderEntry {
+	readonly intent: SdkOrderIntent;
+	readonly submittedAtMs: number;
+}
+
 export class PaperExecutor implements Executor {
 	private readonly config: PaperExecutorConfig;
 	private orderCounter: number;
 	private readonly fills: FillRecord[];
-	private readonly activeOrders: Map<string, SdkOrderIntent>;
+	private readonly activeOrders: Map<string, ActiveOrderEntry>;
 
 	constructor(config?: Partial<PaperExecutorConfig>) {
 		const fillProbability = config?.fillProbability ?? 1;
@@ -63,6 +70,7 @@ export class PaperExecutor implements Executor {
 			fillDelayMs: config?.fillDelayMs ?? 0,
 			clock: config?.clock ?? SystemClock,
 			maxFillHistory: config?.maxFillHistory ?? 10000,
+			maxOrderAgeMs: config?.maxOrderAgeMs ?? 0,
 		};
 		this.orderCounter = 0;
 		this.fills = [];
@@ -70,10 +78,13 @@ export class PaperExecutor implements Executor {
 	}
 
 	async submit(intent: SdkOrderIntent): Promise<Result<OrderResult, TradingError>> {
+		this.sweepStaleOrders();
+
 		this.orderCounter++;
 		const coid = clientOrderId(`paper-${this.orderCounter}`);
 		const eoid = exchangeOrderId(`exch-${this.orderCounter}`);
 		const fillRatio = this.config.fillProbability;
+		const nowMs = this.config.clock.now();
 
 		if (fillRatio === 0) {
 			const result: OrderResult = {
@@ -83,7 +94,8 @@ export class PaperExecutor implements Executor {
 				totalFilled: Decimal.zero(),
 				avgFillPrice: null,
 			};
-			this.pushFill({ intent, result, timestampMs: this.config.clock.now() });
+			this.activeOrders.set(idToString(coid), { intent, submittedAtMs: nowMs });
+			this.pushFill({ intent, result, timestampMs: nowMs });
 			return ok(result);
 		}
 
@@ -100,8 +112,8 @@ export class PaperExecutor implements Executor {
 			avgFillPrice: fillPrice,
 		};
 
-		this.activeOrders.set(idToString(coid), intent);
-		this.pushFill({ intent, result, timestampMs: this.config.clock.now() });
+		this.activeOrders.set(idToString(coid), { intent, submittedAtMs: nowMs });
+		this.pushFill({ intent, result, timestampMs: nowMs });
 		return ok(result);
 	}
 
@@ -121,6 +133,38 @@ export class PaperExecutor implements Executor {
 	/** Returns the complete history of simulated fills in chronological order. */
 	fillHistory(): readonly FillRecord[] {
 		return [...this.fills];
+	}
+
+	/** Returns the number of currently active orders. */
+	activeOrderCount(): number {
+		return this.activeOrders.size;
+	}
+
+	private sweepStaleOrders(): void {
+		if (this.config.maxOrderAgeMs <= 0) {
+			return;
+		}
+
+		const nowMs = this.config.clock.now();
+		const toExpire: Array<{ key: string; entry: ActiveOrderEntry }> = [];
+
+		for (const [key, entry] of this.activeOrders) {
+			if (nowMs - entry.submittedAtMs > this.config.maxOrderAgeMs) {
+				toExpire.push({ key, entry });
+			}
+		}
+
+		for (const { key, entry } of toExpire) {
+			this.activeOrders.delete(key);
+			const result: OrderResult = {
+				clientOrderId: clientOrderId(key),
+				exchangeOrderId: exchangeOrderId(`exch-expired-${key}`),
+				finalState: PendingState.Cancelled,
+				totalFilled: Decimal.zero(),
+				avgFillPrice: null,
+			};
+			this.pushFill({ intent: entry.intent, result, timestampMs: nowMs });
+		}
 	}
 
 	private computeSlippage(direction: OrderDirection): Decimal {
