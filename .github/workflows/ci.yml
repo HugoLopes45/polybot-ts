@@ -56,9 +56,84 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - name: Verify dist
+      - name: Verify all subpath exports exist
         run: |
-          test -f dist/index.js && test -f dist/index.cjs
-          test -f dist/shared/index.js && test -f dist/shared/index.cjs
-          test -f dist/analytics/index.js && test -f dist/analytics/index.cjs
-          test -f dist/strategy/index.d.ts && test -f dist/strategy/index.d.cts
+          for subpath in index accounting analytics auth backtest context ctf events execution lifecycle market observability order persistence position pricing risk shared signal sizing smart-money strategy websocket; do
+            dir=""
+            if [ "$subpath" != "index" ]; then dir="$subpath/"; fi
+            test -f "dist/${dir}index.js" || { echo "MISSING: dist/${dir}index.js"; exit 1; }
+            test -f "dist/${dir}index.cjs" || { echo "MISSING: dist/${dir}index.cjs"; exit 1; }
+            test -f "dist/${dir}index.d.ts" || { echo "MISSING: dist/${dir}index.d.ts"; exit 1; }
+          done
+          echo "All 23 entry points verified (ESM + CJS + DTS)"
+
+  smoke-test:
+    name: Package Smoke Test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Pack tarball
+        run: pnpm pack
+      - name: Install tarball in fresh project
+        run: |
+          mkdir /tmp/smoke-test && cd /tmp/smoke-test
+          npm init -y
+          npm install $GITHUB_WORKSPACE/polybot-sdk-*.tgz
+      - name: Test ESM imports
+        run: |
+          cd /tmp/smoke-test
+          cat > test-esm.mjs << 'SCRIPT'
+          import { Decimal, StrategyBuilder, GuardPipeline } from "@polybot/sdk";
+          import { calcSMA } from "@polybot/sdk/analytics";
+          import { runBacktest } from "@polybot/sdk/backtest";
+          import { FixedSizer } from "@polybot/sdk/sizing";
+          console.log("ESM: Decimal.from works:", Decimal.from("1").toString() === "1");
+          console.log("ESM: All subpath imports resolved");
+          SCRIPT
+          node test-esm.mjs
+      - name: Test CJS imports
+        run: |
+          cd /tmp/smoke-test
+          cat > test-cjs.cjs << 'SCRIPT'
+          const { Decimal, StrategyBuilder } = require("@polybot/sdk");
+          const { calcSMA } = require("@polybot/sdk/analytics");
+          const { runBacktest } = require("@polybot/sdk/backtest");
+          console.log("CJS: Decimal.from works:", Decimal.from("1").toString() === "1");
+          console.log("CJS: All subpath imports resolved");
+          SCRIPT
+          node test-cjs.cjs
+      - name: Test TypeScript resolution
+        run: |
+          cd /tmp/smoke-test
+          npm install typescript@5
+          cat > tsconfig.json << 'TSCONFIG'
+          {
+            "compilerOptions": {
+              "strict": true,
+              "moduleResolution": "bundler",
+              "module": "esnext",
+              "target": "es2022",
+              "noEmit": true,
+              "skipLibCheck": false
+            },
+            "include": ["check-types.ts"]
+          }
+          TSCONFIG
+          cat > check-types.ts << 'TS'
+          import type { Decimal } from "@polybot/sdk";
+          import type { SlippageModel } from "@polybot/sdk/backtest";
+          import type { GuardPipeline } from "@polybot/sdk/risk";
+          const _d: Decimal = {} as Decimal;
+          const _s: SlippageModel = {} as SlippageModel;
+          const _g: GuardPipeline = {} as GuardPipeline;
+          TS
+          npx tsc --noEmit
+          echo "TypeScript type resolution OK"

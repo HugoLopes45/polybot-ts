@@ -171,7 +171,7 @@
 	"bugs": {
 		"url": "https://github.com/HugoLopes45/polybot-ts/issues"
 	},
-	"keywords": ["polymarket", "trading", "sdk", "ddd", "typescript", "prediction-markets"],
+	"keywords": ["polymarket", "prediction-market", "trading", "algorithmic-trading", "quant", "sdk", "typescript", "trading-bot", "polybot"],
 	"publishConfig": {
 		"access": "public"
 	},

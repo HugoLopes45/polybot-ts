@@ -3,6 +3,7 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
 	title: "Polybot SDK",
 	description: "Production-grade Polymarket trading bot SDK for TypeScript",
+	base: "/polybot-ts/",
 	lastUpdated: true,
 	cleanUrls: true,
 	ignoreDeadLinks: [/\/api\//, /\/_media\//, /^\/CHANGELOG$/],
