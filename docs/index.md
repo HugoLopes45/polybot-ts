@@ -20,18 +20,18 @@ features:
   - title: Risk Management
     details: 19 built-in risk guards with composable pipelines, presets, and kill switch protection.
     link: /guides/risk-management
-  - title: Position Tracking
-    details: Immutable position management with FIFO cost basis, HWM tracking, and P&L calculation.
-    link: /guides/position-tracking
+  - title: Pricing Models
+    details: Black-Scholes pricing, oracle aggregation, Dutch book escape, impact estimation, and dynamic spreads.
+    link: /guides/pricing-models
   - title: 25+ Technical Indicators
-    details: SMA, EMA, RSI, MACD, Bollinger Bands, ATR, and more — all with Decimal precision.
+    details: SMA, EMA, RSI, MACD, Bollinger Bands, ATR, VPIN, OFI, and more — all with Decimal precision.
     link: /guides/analytics
+  - title: Market Operations
+    details: Market scanning with composite scoring, portfolio rebalancing, and multi-leg arbitrage execution.
+    link: /guides/market-operations
   - title: Backtesting
     details: Run historical backtests with configurable slippage models and performance metrics.
     link: /guides/backtesting
-  - title: WebSocket Feeds
-    details: Real-time orderbook and trade streaming with automatic reconnection and rate limiting.
-    link: /guides/websocket-feeds
   - title: TypeScript-First
     details: Branded identifiers, Result types, 18-digit Decimal precision, and full type safety.
     link: /concepts/result-pattern

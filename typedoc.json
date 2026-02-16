@@ -6,6 +6,7 @@
 	"plugin": ["typedoc-plugin-markdown"],
 	"excludePrivate": true,
 	"excludeProtected": false,
+	"excludeExternals": true,
 	"includeVersion": false,
 	"compilerOptions": {
 		"strict": true,

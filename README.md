@@ -9,7 +9,6 @@
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript&logoColor=white" alt="TypeScript 5.7"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
   <a href="#"><img src="https://img.shields.io/badge/ESM%20%2B%20CJS-dual%20output-blueviolet" alt="ESM + CJS dual output"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Tests-2071%20passing-brightgreen" alt="2071 tests passing"></a>
 </p>
 
 <p align="center">
@@ -143,7 +142,7 @@ const oracleArb: SignalDetector<unknown, { price: Decimal; edge: number }> = {
 - **Library-abstracted** — all external deps wrapped in `lib/`, swap implementations without touching domain code
 - **ESM + CJS dual output** — works everywhere via tsup
 - **Clock injection** — deterministic tests, no `Date.now()` in domain code
-- **2,071 tests** across 122 test files — hardened through multiple adversarial review passes
+- **2,000+ tests** across 122 test files — hardened through multiple adversarial review passes
 
 </td>
 </tr>
@@ -297,7 +296,7 @@ const slippage = estimateSlippage(asks, size);         // Expected slippage for 
 
 ```bash
 pnpm install          # Install dependencies
-pnpm vitest run       # Run all 2,071 tests
+pnpm vitest run       # Run all 2,000+ tests
 pnpm test:watch       # Watch mode for TDD
 pnpm typecheck        # TypeScript strict type checking
 pnpm lint             # Biome linting
@@ -338,7 +337,7 @@ pnpm ci               # Run all CI checks
 | Rate limiting with presets | Yes | Manual | Manual |
 | Market discovery & scanning | Yes | Manual | Manual |
 | Library abstraction layer | Yes | No | No |
-| Test suite | 2,071 tests | N/A | N/A |
+| Test suite | 2,000+ tests | N/A | N/A |
 
 ---
 
