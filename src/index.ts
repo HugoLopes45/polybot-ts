@@ -81,6 +81,18 @@ export {
 	TakeProfitExit,
 	TimeExit,
 	TrailingStopExit,
+	// Phase 9 exits
+	type GammaRiskConfig,
+	GammaRiskExit,
+	MaxHoldTimeExit,
+	ProfitLockerExit,
+	// Phase 9 detectors
+	type DipArbConfig,
+	type DipArbSignal,
+	DipArbDetector,
+	type OracleArbConfig,
+	type OracleArbSignal,
+	OracleArbDetector,
 } from "./signal/index.js";
 
 // ── Risk & Guards ───────────────────────────────────────────────────
@@ -96,6 +108,9 @@ export {
 	isAllowed,
 	isBlocked,
 	GuardPipeline,
+	ConditionalGuard,
+	NotGuard,
+	OrGuard,
 	BalanceGuard,
 	BookStalenessGuard,
 	CircuitBreakerGuard,
@@ -112,6 +127,13 @@ export {
 	RateLimitGuard,
 	ToxicityGuard,
 	UsdcRejectionGuard,
+	// Phase 9 guards
+	FlowRegimeGuard,
+	LatencySlaGuard,
+	type LatencyStats,
+	StatsGuard,
+	type StatsGuardConfig,
+	type StatsSnapshot,
 } from "./risk/index.js";
 
 // ── Position ────────────────────────────────────────────────────────
@@ -162,6 +184,15 @@ export {
 	OrderHandleBuilder,
 	OrderRegistry,
 	OrderCoordinator,
+	OrderTracker,
+	// Phase 9 order utilities
+	type DesiredOrder,
+	type DiffAction,
+	type DiffConfig,
+	type LiveOrder,
+	diffOrders,
+	IdempotencyGuard,
+	type IdempotencyConfig,
 } from "./order/index.js";
 
 // ── Context ─────────────────────────────────────────────────────────
@@ -193,6 +224,9 @@ export {
 	type PaperExecutorConfig,
 	withRetry,
 	ClobExecutor,
+	QueueModel,
+	type QueueConfig,
+	type QueueEntry,
 } from "./execution/index.js";
 
 // ── Lib: Ethereum ───────────────────────────────────────────────────
@@ -231,6 +265,21 @@ export {
 	spread,
 	MarketCatalog,
 	scan,
+	categorize,
+	type MarketCategory,
+	// Phase 9 market utilities
+	ArbitrageExecutor,
+	type ArbitrageExecutorConfig,
+	type ArbitrageExecutionResult,
+	Rebalancer,
+	type RebalancerConfig,
+	type TokenBalance,
+	type RebalanceAction,
+	MarketScanner,
+	type MarketData,
+	type MarketScore,
+	type MarketScannerConfig,
+	type ScannerWeights,
 } from "./market/index.js";
 
 // ── WebSocket ───────────────────────────────────────────────────────
@@ -356,6 +405,10 @@ export {
 	// Price history
 	PriceHistoryClient,
 	VALID_INTERVALS,
+	// Phase 9 microstructure
+	VpinTracker,
+	OfiTracker,
+	CorrelationEngine,
 } from "./analytics/index.js";
 export type {
 	Candle,
@@ -363,4 +416,93 @@ export type {
 	PricePoint,
 	PriceInterval,
 	PriceHistoryProvider,
+	BandResult,
+	MACDResult,
+	StochasticResult,
+	VpinConfig,
+	TradeUpdate,
+	BookLevel,
+	OfiSnapshot,
+	CorrelationConfig,
+	CorrelationResult,
 } from "./analytics/index.js";
+
+// ── Sizing ──────────────────────────────────────────────────────────
+export { FixedSizer, KellySizer } from "./sizing/index.js";
+export type { PositionSizer, SizingInput, SizingMethod, SizingResult } from "./sizing/index.js";
+
+// ── Pricing ────────────────────────────────────────────────────────
+export {
+	normalCdf,
+	binaryCallPrice,
+	binaryPutPrice,
+	calcEdge,
+	calcGammaFactor,
+	calcExpectedValue,
+	priceBinary,
+	calculateEscapeRoute,
+	ChainlinkTracker,
+	WeightedOracle,
+	OnlineRegression,
+	LogitTransferModel,
+	estimateImpact,
+	optimalSize,
+	calcDynamicSpread,
+	calcExpirySpread,
+	defaultExpirySpreadConfig,
+} from "./pricing/index.js";
+export type {
+	PricingInput,
+	PricingResult,
+	EscapeRoute,
+	EscapeVerdict,
+	OracleConfig,
+	OracleObservation,
+	SettlementPrediction,
+	AggregatedPrice,
+	OracleSourceConfig,
+	PriceUpdate,
+	WeightedOracleConfig,
+	RegressionStats,
+	TransferConfig,
+	TransferPrediction,
+	ImpactConfig,
+	ImpactInput,
+	ImpactEstimate,
+	SpreadConfig,
+	SpreadInput,
+	SpreadResult,
+	ExpirySpreadConfig,
+	ExpiryBucket,
+} from "./pricing/index.js";
+
+// ── Backtest ───────────────────────────────────────────────────────
+export {
+	priceTrend,
+	randomWalk,
+	meanReverting,
+	expiryCountdown,
+	calcSharpe,
+	calcProfitFactor,
+	calcMaxDrawdown,
+	calcCalmarRatio,
+	calcWinRate,
+	FixedBpsSlippage,
+	SizeProportionalSlippage,
+	CommissionModel,
+	runBacktest,
+} from "./backtest/index.js";
+export type {
+	ReplayTick,
+	GeneratorConfig,
+	SlippageModel,
+	BacktestConfig,
+	BacktestResult,
+	TradeRecord,
+	BacktestDetector,
+	EntryState,
+} from "./backtest/index.js";
+
+// ── Observability ──────────────────────────────────────────────────
+export { LatencyHistogram } from "./observability/index.js";
+export type { Percentile } from "./observability/index.js";
