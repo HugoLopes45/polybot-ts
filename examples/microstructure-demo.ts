@@ -1,4 +1,12 @@
-import { CorrelationEngine, Decimal, OfiTracker, VpinTracker } from "../src/index.js";
+/**
+ * Microstructure Demo — VPIN, OFI, and Correlation Engine.
+ *
+ * Demonstrates real-time microstructure analysis tools.
+ *
+ * Run: npx tsx -p tsconfig.examples.json examples/microstructure-demo.ts
+ */
+
+import { CorrelationEngine, Decimal, OfiTracker, VpinTracker } from "@polybot/sdk";
 
 const vpin = VpinTracker.create({
 	bucketSize: Decimal.from("500"),
@@ -37,10 +45,9 @@ const delta = ofi.update({
 	bestBid: { price: Decimal.from("0.50"), size: Decimal.from("600") },
 	bestAsk: { price: Decimal.from("0.52"), size: Decimal.from("250") },
 });
-console.log(`OFI Delta: ${delta.toString()}`);
+console.log(`OFI Delta: ${delta?.toString() ?? "N/A (first update)"}`);
 
 console.log("\nCorrelation Engine:");
 corr.update(Decimal.from("45000"), Decimal.from("0.65"));
-corr.update(Decimal.from("45500"), Decimal.from("0.66"));
-const correlation = corr.correlation();
-console.log(`Correlation: ${correlation?.toString() ?? "N/A (insufficient data)"}`);
+const corrResult = corr.update(Decimal.from("45500"), Decimal.from("0.66"));
+console.log(`Correlation: ${corrResult?.correlation.toString() ?? "N/A (insufficient data)"}`);

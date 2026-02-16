@@ -362,6 +362,7 @@ export type {
 export {
 	KLineAggregator,
 	INTERVAL_MS,
+	createCandle,
 	// Price-only indicators
 	calcSMA,
 	calcEMA,

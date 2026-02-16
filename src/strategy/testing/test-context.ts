@@ -6,6 +6,7 @@ import type { ConditionId } from "../../shared/identifiers.js";
 import { conditionId } from "../../shared/identifiers.js";
 import type { MarketSide } from "../../shared/market-side.js";
 import type { Clock } from "../../shared/time.js";
+import type { TickContext } from "../built-strategy.js";
 
 export class TestContextBuilder {
 	private conditionId: ConditionId = conditionId("test-condition-123");
@@ -62,8 +63,8 @@ export class TestContextBuilder {
 		return this;
 	}
 
-	build(): DetectorContext {
-		return DetectorContext.create({
+	build(): TickContext {
+		const detector = DetectorContext.create({
 			conditionId: this.conditionId,
 			clock: this.clock,
 			bestBid: null,
@@ -81,5 +82,12 @@ export class TestContextBuilder {
 			consecutiveLosses: 0,
 			availableBalance: this.availableBalance,
 		});
+		return Object.assign(detector, {
+			openPositionCount: () => detector.openCount(),
+			totalExposure: () => detector.totalNotional(),
+			hasPendingOrderFor: (_conditionId: ConditionId, _side: MarketSide) => false,
+			lastTradeTimeMs: (_conditionId: ConditionId) => null as number | null,
+			bookAgeMs: () => null as number | null,
+		}) as TickContext;
 	}
 }

@@ -1,3 +1,11 @@
+/**
+ * Pricing Demo — Black-Scholes, Weighted Oracle, and Dutch Book analysis.
+ *
+ * Demonstrates pricing models for prediction market fair value estimation.
+ *
+ * Run: npx tsx -p tsconfig.examples.json examples/pricing-demo.ts
+ */
+
 import {
 	binaryCallPrice,
 	calcEdge,
@@ -5,7 +13,7 @@ import {
 	Decimal,
 	SystemClock,
 	WeightedOracle,
-} from "../src/index.js";
+} from "@polybot/sdk";
 
 console.log("Black-Scholes Pricing:");
 const fairPrice = binaryCallPrice({
@@ -37,7 +45,7 @@ const oracle = WeightedOracle.create(
 oracle.update({ source: "clob", price: Decimal.from("0.50"), timestampMs: Date.now() });
 oracle.update({ source: "cpmm", price: Decimal.from("0.49"), timestampMs: Date.now() });
 const aggregated = oracle.aggregate();
-console.log(`Aggregated Price: ${aggregated.isOk() ? aggregated.value.toString() : "Error"}`);
+console.log(`Aggregated Price: ${aggregated?.price.toString() ?? "N/A (no active sources)"}`);
 
 console.log("\nDutch Book Escape:");
 const escape = calculateEscapeRoute(
