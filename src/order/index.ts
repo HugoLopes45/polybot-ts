@@ -21,3 +21,7 @@ export { OrderHandleBuilder } from "./order-handle-builder.js";
 export { OrderRegistry } from "./order-registry.js";
 export { OrderCoordinator } from "./order-coordinator.js";
 export { OrderTracker } from "./order-tracker.js";
+export type { DesiredOrder, DiffAction, DiffConfig, LiveOrder } from "./order-differ.js";
+export { diffOrders } from "./order-differ.js";
+export type { IdempotencyConfig } from "./idempotency-guard.js";
+export { IdempotencyGuard } from "./idempotency-guard.js";

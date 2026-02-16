@@ -44,3 +44,9 @@ export {
 } from "./orderbook-analytics.js";
 export type { PricePoint, PriceInterval, PriceHistoryProvider } from "./price-history.js";
 export { PriceHistoryClient, VALID_INTERVALS } from "./price-history.js";
+export type { VpinConfig, TradeUpdate } from "./vpin.js";
+export { VpinTracker } from "./vpin.js";
+export type { BookLevel, OfiSnapshot } from "./ofi.js";
+export { OfiTracker } from "./ofi.js";
+export type { CorrelationConfig, CorrelationResult } from "./correlation.js";
+export { CorrelationEngine } from "./correlation.js";
