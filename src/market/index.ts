@@ -29,3 +29,10 @@ export {
 	type TokenBalance,
 	type RebalanceAction,
 } from "./rebalancer.js";
+export {
+	MarketScanner,
+	type MarketData,
+	type MarketScore,
+	type MarketScannerConfig,
+	type ScannerWeights,
+} from "./market-scanner.js";

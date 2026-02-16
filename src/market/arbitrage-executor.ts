@@ -120,29 +120,7 @@ export class ArbitrageExecutor {
 		for (const leg of opportunity.legs) {
 			const orderResult = this.createOrder(leg, size, conditionIdValue);
 			if (isErr(orderResult)) {
-				const cancelOutcomes: string[] = [];
-				for (const successResult of results) {
-					const cancelResult = await this.executor.cancel(successResult.clientOrderId);
-					cancelOutcomes.push(
-						cancelResult.ok
-							? `${successResult.clientOrderId}: cancelled`
-							: `${successResult.clientOrderId}: cancel_failed`,
-					);
-				}
-				return err(
-					new TradingError(
-						`Partial execution: ${results.length}/${opportunity.legs.length} legs submitted, rollback attempted`,
-						orderResult.error.code,
-						orderResult.error.category,
-						{
-							partialResults: results.length,
-							totalLegs: opportunity.legs.length,
-							originalError: orderResult.error.message,
-							cancelOutcomes,
-							cause: orderResult.error,
-						},
-					),
-				);
+				return this.rollbackAndFail(results, opportunity, orderResult.error);
 			}
 
 			const order = orderResult.value;
@@ -150,35 +128,43 @@ export class ArbitrageExecutor {
 
 			const submitResult = await this.executor.submit(order);
 			if (isErr(submitResult)) {
-				const cancelOutcomes: string[] = [];
-				for (const successResult of results) {
-					const cancelResult = await this.executor.cancel(successResult.clientOrderId);
-					cancelOutcomes.push(
-						cancelResult.ok
-							? `${successResult.clientOrderId}: cancelled`
-							: `${successResult.clientOrderId}: cancel_failed`,
-					);
-				}
-				return err(
-					new TradingError(
-						`Partial execution: ${results.length}/${opportunity.legs.length} legs submitted, rollback attempted`,
-						submitResult.error.code,
-						submitResult.error.category,
-						{
-							partialResults: results.length,
-							totalLegs: opportunity.legs.length,
-							originalError: submitResult.error.message,
-							cancelOutcomes,
-							cause: submitResult.error,
-						},
-					),
-				);
+				return this.rollbackAndFail(results, opportunity, submitResult.error);
 			}
 
 			results.push(submitResult.value);
 		}
 
 		return ok({ opportunity, size, orders, results });
+	}
+
+	private async rollbackAndFail(
+		results: readonly OrderResult[],
+		opportunity: ArbitrageOpportunity,
+		originalError: TradingError,
+	): Promise<Result<never, TradingError>> {
+		const cancelOutcomes: string[] = [];
+		for (const successResult of results) {
+			const cancelResult = await this.executor.cancel(successResult.clientOrderId);
+			cancelOutcomes.push(
+				cancelResult.ok
+					? `${successResult.clientOrderId}: cancelled`
+					: `${successResult.clientOrderId}: cancel_failed`,
+			);
+		}
+		return err(
+			new TradingError(
+				`Partial execution: ${results.length}/${opportunity.legs.length} legs submitted, rollback attempted`,
+				originalError.code,
+				originalError.category,
+				{
+					partialResults: results.length,
+					totalLegs: opportunity.legs.length,
+					originalError: originalError.message,
+					cancelOutcomes,
+					cause: originalError,
+				},
+			),
+		);
 	}
 
 	private validateOpportunity(opportunity: ArbitrageOpportunity): Result<void, TradingError> {
