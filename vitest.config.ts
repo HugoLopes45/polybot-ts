@@ -16,6 +16,9 @@ export default defineConfig({
 		},
 		testTimeout: 5000,
 	},
+	bench: {
+		include: ["benches/**/*.bench.ts"],
+	},
 	resolve: {
 		alias: {
 			"@polybot": new URL("./src", import.meta.url).pathname,

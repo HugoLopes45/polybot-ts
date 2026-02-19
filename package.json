@@ -251,6 +251,7 @@
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"test:integration": "vitest run --project integration",
+		"bench": "vitest bench",
 		"check": "pnpm lint && pnpm typecheck && pnpm test",
 		"validate": "pnpm build && publint && attw --pack . --ignore-rules=no-resolution",
 		"knip": "knip",

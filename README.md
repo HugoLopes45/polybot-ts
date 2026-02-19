@@ -158,6 +158,15 @@ const oracleArb: SignalDetector<unknown, { price: Decimal; edge: number }> = {
 - **Observability** — structured logging via Pino, metrics hooks, performance tracing
 
 </td>
+<td>
+
+### Operational Tooling
+- **Mempool monitoring** (`src/mempool/`) — `CtfMempoolMonitor` subscribes to Polygon RPC pending transactions over WebSocket; emits `merge_signal`, `redeem_signal`, and `whale_detected` events for CTF contract activity
+- **Terminal dashboard** (`src/tui/`) — `TerminalDashboard` renders a live ANSI dashboard (positions, trades, alerts, P&L); `DashboardRenderer` converts a `DashboardStats` snapshot to an ANSI string
+- **Thread config hints** (`src/shared/thread-config`) — `ThreadConfig`, `getDefaultThreadConfig()`, `applyThreadConfig()` — CPU affinity and worker count guidance for latency-sensitive servers
+- **Performance benchmarks** (`benches/`) — Vitest bench suite for arbitrage edge, SMA, Kelly sizing, and orderbook depth hot-path regression tracking
+
+</td>
 </tr>
 </table>
 
@@ -319,6 +328,7 @@ pnpm ci               # Run all CI checks
 - [x] **Phase 6.2** — JSDoc completion, documentation polish, CHANGELOG
 - [x] **Hardening** — Multiple adversarial review passes, 400+ tests added, bug fixes
 - [x] **Phase 9** — Pricing models, backtesting, position sizing, microstructure, observability
+- [x] **Gap-closing** — Mempool monitoring, terminal dashboard, thread config hints, performance benchmarks
 - [ ] **Phase 7** — npm publish, documentation site, CLI tooling
 
 ---

@@ -53,3 +53,5 @@ export { Decimal } from "./decimal.js";
 export { MarketSide, oppositeSide, complementPrice } from "./market-side.js";
 export { type Clock, SystemClock, FakeClock, Duration } from "./time.js";
 export { type SdkConfig, DEFAULT_SDK_CONFIG } from "./config.js";
+export type { ThreadConfig } from "./thread-config.js";
+export { getDefaultThreadConfig, applyThreadConfig } from "./thread-config.js";

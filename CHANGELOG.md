@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Mempool monitoring** (`src/mempool/`) — `CtfMempoolMonitor` subscribes to Polygon RPC pending transactions over WebSocket and emits `MempoolEvent` domain events (`merge_signal`, `redeem_signal`, `whale_detected`) for CTF contract interactions
+- **Terminal dashboard** (`src/tui/`) — `TerminalDashboard` provides an interval-driven ANSI live dashboard with positions, recent trades, alerts, and P&L stats; `DashboardRenderer` renders a `DashboardStats` snapshot to an ANSI string
+- **Thread configuration hints** (`src/shared/thread-config`) — `ThreadConfig` interface, `getDefaultThreadConfig()`, and `applyThreadConfig()` provide CPU affinity and worker count guidance for latency-sensitive deployments
+- **Performance benchmarks** (`benches/`) — Vitest bench suite covering arbitrage edge calculation, SMA indicator, Kelly sizing, and orderbook depth for hot-path regression tracking
+
 ## [0.1.0] — 2026-02-16
 
 ### Added
